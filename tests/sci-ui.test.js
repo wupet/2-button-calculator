@@ -1,0 +1,146 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const EML = require('./load')({ ui: true });
+
+const { modeSci } = EML;
+const keys = (src) => modeSci.breakdown(EML.parse(src)).map((e) => e.key);
+
+test('mode-sci loads without a document and init is a no-op', () => {
+  assert.equal(typeof globalThis.document, 'undefined');
+  for (const fn of ['init', 'breakdown', 'skeleton', 'positionsFor', 'badgeFor', 'exampleFor', 'sampleK']) {
+    assert.equal(typeof modeSci[fn], 'function', fn);
+  }
+  assert.doesNotThrow(() => modeSci.init({}));
+});
+
+test('badgeFor covers all six statuses with the spec wording', () => {
+  assert.deepEqual(modeSci.badgeFor('ok'), { text: '✓ matches standard math', tone: 'ok' });
+  assert.deepEqual(modeSci.badgeFor('limit'), { text: '≈ limit', tone: 'limit' });
+  assert.deepEqual(modeSci.badgeFor('overflow'), { text: '⚠ overflow', tone: 'warn' });
+  assert.deepEqual(modeSci.badgeFor('mismatch'), { text: '≠ differs', tone: 'bad' });
+  assert.deepEqual(modeSci.badgeFor('undefined'), { text: 'undefined', tone: 'muted' });
+  assert.equal(modeSci.badgeFor('error').text, '');
+  assert.equal(modeSci.badgeFor('error').tone, 'error');
+  // Unknown statuses read as errors; callers cannot mutate the table.
+  assert.equal(modeSci.badgeFor('nope').tone, 'error');
+  modeSci.badgeFor('ok').text = 'changed';
+  assert.equal(modeSci.badgeFor('ok').text, '✓ matches standard math');
+});
+
+test('breakdown lists distinct elements in reading order', () => {
+  assert.deepEqual(keys('sin(2) + 3'), ['r:sin', 'num:2', 'r:add', 'num:3']);
+  assert.deepEqual(keys('2 + 2 + 2'), ['num:2', 'r:add']);
+  assert.deepEqual(keys('-x'.replace('x', '1')), ['r:neg', 'num:1']);
+  assert.deepEqual(keys('pi * e'), ['r:pi', 'r:mul', 'r:e']);
+  assert.deepEqual(keys('sqrt(-4)'), ['r:sqrt', 'r:neg', 'num:4']);
+  assert.deepEqual(keys('log(2, 8)'), ['r:logb', 'num:2', 'num:8']);
+  assert.deepEqual(keys('0.5 + 0.50'), ['num:0.5', 'r:add', 'num:0.50']);
+});
+
+test('breakdown entries carry symbol, name, formula, K and use count', () => {
+  const entries = modeSci.breakdown(EML.parse('sin(2) + sin(3)'));
+  const sin = entries.find((e) => e.key === 'r:sin');
+  assert.equal(sin.kind, 'function');
+  assert.equal(sin.symbol, 'sin');
+  assert.equal(sin.name, EML.recipeById.sin.name);
+  assert.equal(sin.formula, EML.recipeById.sin.formula);
+  assert.equal(sin.uses, 2);
+  // K of a sample build with a variable argument.
+  const z = EML.calls.variable('z');
+  assert.equal(sin.K, EML.dag.K(EML.R.call('sin', z).root));
+  assert.ok(sin.K > 100);
+
+  const add = entries.find((e) => e.key === 'r:add');
+  assert.equal(add.kind, 'operator');
+  assert.equal(add.symbol, '+');
+  const two = entries.find((e) => e.key === 'num:2');
+  assert.equal(two.kind, 'number');
+  assert.equal(two.symbol, '2');
+  assert.equal(two.K, EML.dag.K(EML.compile(EML.parse('2')).root));
+  const pi = modeSci.breakdown(EML.parse('pi'))[0];
+  assert.equal(pi.kind, 'constant');
+  assert.equal(pi.symbol, 'π');
+});
+
+test('every breakdown entry has a positive K and a formula, for every recipe', () => {
+  for (const r of EML.recipes) {
+    const k = modeSci.sampleK(r.id);
+    assert.ok(Number.isInteger(k) && k >= 1, `${r.id} K=${k}`);
+  }
+  assert.equal(modeSci.sampleK('one'), 1);
+  assert.equal(modeSci.sampleK('e'), 3);
+  assert.equal(modeSci.sampleK('exp'), 3);
+  assert.equal(modeSci.sampleK('ln'), 7);
+  assert.equal(modeSci.sampleK('sin'), EML.dag.K(EML.R.call('sin', EML.calls.variable('q')).root));
+});
+
+test('number cards describe how the literal is built', () => {
+  const f = (t) => modeSci.breakdown(EML.parse(t))[0].formula;
+  assert.equal(f('0'), 'ln(1)');
+  assert.equal(f('1'), 'the constant 1');
+  assert.equal(f('2'), '1 + 1');
+  assert.match(f('13'), /doubling/);
+  assert.equal(f('0.5'), '1 × (1 ÷ 2)');
+  assert.ok(modeSci.numberK('13') > modeSci.numberK('2'));
+});
+
+test('exampleFor: every recipe gets an example that evaluates without error', () => {
+  for (const r of EML.recipes) {
+    const ex = modeSci.exampleFor(r.id);
+    assert.equal(typeof ex, 'string');
+    const res = EML.run(ex);
+    assert.notEqual(res.status, 'error', `${r.id}: "${ex}" -> ${res.note}`);
+  }
+  assert.equal(modeSci.exampleFor('sin'), 'sin(1)');
+  assert.equal(modeSci.exampleFor('logb'), 'log(2, 8)');
+});
+
+test('skeleton pairs each AST node with its call at the folded path', () => {
+  const res = EML.run('sin(2) + 3');
+  const skel = modeSci.skeleton(res.ast, res.call);
+  assert.deepEqual(skel.map((s) => s.path), ['', '/0', '/0/0', '/1']);
+  assert.deepEqual(skel.map((s) => s.key), ['r:add', 'r:sin', 'num:2', 'num:3']);
+  assert.equal(skel[0].call, res.call);
+  assert.equal(skel[2].call.prim, 'lit');
+});
+
+test('positionsFor finds an element folded, unfolded and inside a body', () => {
+  const res = EML.run('sin(2) + 3');
+  const skel = modeSci.skeleton(res.ast, res.call);
+  const folded = EML.viewModel.build(res.call, {}).root;
+  assert.deepEqual([...modeSci.positionsFor(folded, skel, 'r:sin')], ['/0']);
+  assert.deepEqual([...modeSci.positionsFor(folded, skel, 'num:3')], ['/1']);
+  assert.deepEqual([...modeSci.positionsFor(folded, skel, 'r:add')], ['']);
+  assert.equal(modeSci.positionsFor(folded, skel, 'r:cos').size, 0);
+
+  // Unfold sin: its spot becomes '/0>' (the body), and the literal 2 is drawn
+  // again deeper inside that body.
+  const unfolded = EML.viewModel.build(res.call, { unfolded: new Set(['/0']) }).root;
+  const sinPos = modeSci.positionsFor(unfolded, skel, 'r:sin');
+  assert.ok(sinPos.has('/0>'));
+  const twoPos = modeSci.positionsFor(unfolded, skel, 'num:2');
+  assert.ok(twoPos.size >= 1);
+  for (const p of twoPos) assert.ok(p.startsWith('/0>'), p);
+  // The sum itself is untouched by unfolding sin.
+  assert.deepEqual([...modeSci.positionsFor(unfolded, skel, 'r:add')], ['']);
+});
+
+test('R13: tan(2)+3 and sin(sin(2)) trip the node cap; sin(2) does not', () => {
+  const tooBig = (src) => EML.viewModel.build(EML.run(src).call, { unfoldAll: true }, 1500);
+  const a = tooBig('sin(sin(2))');
+  assert.ok(a.tooBig);
+  assert.equal(a.count, EML.run('sin(sin(2))').K);
+  assert.ok(!tooBig('sin(2)').tooBig);
+});
+
+test('limit results resolve with the nudged literals and end at the tidy value', () => {
+  const res = EML.run('sin(0)');
+  assert.equal(res.status, 'limit');
+  const ev = EML.dag.makeEvaluator({ overrides: res.overrides });
+  const vroot = EML.viewModel.build(res.call, {}).root;
+  const resolver = new EML.Resolver(vroot, (n) => ev(n));
+  while (!resolver.done && resolver.step().length) { /* run to the end */ }
+  assert.ok(resolver.done);
+  const top = resolver.values.get(vroot.path);
+  assert.ok(Math.abs(top.re) < 1e-6 && Math.abs(top.im) < 1e-6);
+});
