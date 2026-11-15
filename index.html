@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>EML calculator</title>
+  <meta name="description" content="One operator, eml(x, y) = e^x - ln y, plus the constant 1 rebuilds every scientific-calculator button.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <svg class="gate" viewBox="0 0 40 28" width="40" height="28" aria-hidden="true" focusable="false">
+        <path d="M2 8h10M2 20h10M28 14h10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M12 3h8c6 0 8 5 8 11s-2 11-8 11h-8z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+      </svg>
+      <h1>EML calculator</h1>
+    </div>
+    <p class="formula" aria-label="eml of x and y equals e to the x minus natural log of y">
+      <span class="mono">eml(x, y) = e<sup>x</sup> &minus; ln&#8239;y</span>
+    </p>
+    <p class="tagline">Add the constant&nbsp;1 and this one operator rebuilds every button on a scientific calculator.</p>
+    <div class="controls">
+      <div id="mode-switch" class="segmented" role="group" aria-label="Calculator mode">
+        <button type="button" data-mode="two" aria-pressed="true">Two-button</button>
+        <button type="button" data-mode="sci" aria-pressed="false">Scientific</button>
+      </div>
+      <button type="button" id="btn-explain" class="btn">What is EML?</button>
+      <button type="button" id="btn-large" class="btn" aria-pressed="false">Large type</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="mode-two" aria-label="Two-button mode"></section>
+    <section id="mode-sci" aria-label="Scientific mode" hidden></section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Based on Odrzywo&#322;ek, <cite>All elementary functions from a single operator</cite>,
+      <a href="https://arxiv.org/abs/2603.21852" target="_blank" rel="noopener noreferrer">arXiv:2603.21852</a>.
+      Angles are in radians.</p>
+  </footer>
+
+  <dialog id="explainer" aria-labelledby="explainer-title"></dialog>
+
+  <script src="js/complex.js"></script>
+  <script src="js/eml-core.js"></script>
+  <script src="js/recipes.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/compiler.js"></script>
+  <script src="js/view-model.js"></script>
+  <script src="js/resolve.js"></script>
+  <script src="js/rpn.js"></script>
+  <script src="js/view-tree.js"></script>
+  <script src="js/view-text.js"></script>
+  <script src="js/explainer.js"></script>
+  <script src="js/mode-two.js"></script>
+  <script src="js/mode-sci.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
