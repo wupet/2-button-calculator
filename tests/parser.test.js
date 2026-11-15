@@ -42,7 +42,6 @@ test('implicit multiplication', () => {
   assert.equal(p('3(1+2)'), '(* 3 (+ 1 2))');
   assert.equal(p('(1)(2)'), '(* 1 2)');
   assert.equal(p('2sin(1)'), '(* 2 (sin 1))');
-  assert.equal(p('2 3'), '(* 2 3)');
   assert.equal(p('pi e'), '(* pi e)');
   assert.equal(p('(1+2)pi'), '(* (+ 1 2) pi)');
   assert.equal(p('2-3'), '(- 2 3)'); // minus stays subtraction
@@ -173,4 +172,39 @@ test('number followed by Euler e still means implicit multiplication', () => {
   assert.equal(p('e^2'), '(^ e 2)');
   assert.equal(p('2e^2'), '(* 2 (^ e 2))');
   assert.equal(p('2e+x'.replace('x', 'e')), '(+ (* 2 e) e)');
+});
+
+// R24: a space between two numbers is almost always a typo for one number
+// ("1 000"), and a decimal comma ("2,5") is not a 2-argument list.
+test('two numbers separated by a space are a parse error with a joined hint (R24)', () => {
+  const cases = [['1 000', 'Two numbers in a row — did you mean 1000?'],
+    ['2 3', 'Two numbers in a row — did you mean 23?'],
+    ['1 000 000 + 1', 'Two numbers in a row — did you mean 1000000?'],
+    ['5 + 2 3', 'Two numbers in a row — did you mean 23?']];
+  for (const [src, msg] of cases) {
+    assert.throws(() => parse(src), (e) => e instanceof ParseError && e.message === msg, src);
+  }
+  assert.equal(EML.run('1 000').status, 'error');
+});
+
+test('a decimal comma at top level is a parse error (R24)', () => {
+  for (const [src, msg] of [['2,5', 'Use a dot for decimals (2.5)'], ['1 + 2,5', 'Use a dot for decimals (2.5)'],
+    ['(0,75)', 'Use a dot for decimals (0.75)']]) {
+    assert.throws(() => parse(src), (e) => e instanceof ParseError && e.message === msg, src);
+  }
+  // Inside a function call the comma still separates arguments.
+  assert.equal(p('log(2,5)'), '(logb 2 5)');
+  assert.equal(p('hypot(3,4)'), '(hypot 3 4)');
+  assert.throws(() => parse('sin(2,5)'), (e) => e instanceof ParseError && /takes 1 argument/.test(e.message));
+});
+
+test('other implicit multiplication is unchanged by R24', () => {
+  assert.equal(p('2pi'), '(* 2 pi)');
+  assert.equal(p('2 pi'), '(* 2 pi)');
+  assert.equal(p('3(1+2)'), '(* 3 (+ 1 2))');
+  assert.equal(p('3 (1+2)'), '(* 3 (+ 1 2))');
+  assert.equal(p('2sin(1)'), '(* 2 (sin 1))');
+  assert.equal(p('2e'), '(* 2 e)');
+  assert.equal(p('(2)(3)'), '(* 2 3)');
+  assert.equal(p('(2) 3'), '(* 2 3)');
 });

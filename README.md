@@ -26,8 +26,8 @@ JavaScript with no dependencies and no network requests.
   level at a time and step through the evaluation in either a Tree or a Text
   view.
 - **"What is EML?"** An explainer dialog with the idea in plain language and
-  small live demos. A **Large type** switch makes everything bigger for
-  projectors.
+  small live demos.
+- **Large type.** A switch that makes everything bigger for projectors.
 
 ## Opening it
 
@@ -39,17 +39,24 @@ JavaScript with no dependencies and no network requests.
 
 ## Running the tests
 
-Needs Node.js 18 or newer, no packages to install:
+Tested with Node.js 22; no packages to install:
 
     node --test
 
 ## Known limitations
 
+- **Only checked digits are shown.** Every result is computed twice: by the
+  `eml` tree and by ordinary (principal-branch) math. The page shows the
+  standard value rounded to the digits on which the two agree (at most 10), so
+  float noise such as `sin(pi)` = 1.2e-16 shows as 0.
 - **Overflow above e^709.** Everything is done in 64-bit floating point. Some
   `eml` routes pass through an `e^(...)` that is too large for a double even
-  when the final answer is modest (for example `-1000` or `800 + 800`). The
-  page shows an overflow badge and gives the standard-math answer rather than
-  a wrong number.
+  when the final answer is modest (for example `-1000` or `800 + 800`); the
+  page then shows an overflow badge and leads with the standard-math answer,
+  with the tree's own value in small print. When standard math also leaves the
+  64-bit range (for example `e^1000` or `ln(exp(1000))`), the page says so and
+  shows no number. True singularities such as `1/0` or `ln(0)` are marked
+  undefined.
 - **Isolated points are shown as limits.** `eml` cannot reach a few points
   exactly (for example `sin(0)` or `0 * 5`). The page evaluates them by
   nudging the inputs a tiny amount and labels the result as a limit.
@@ -59,7 +66,8 @@ Needs Node.js 18 or newer, no packages to install:
   and shows both.
 - **Literals are limited to 6 significant digits** (and a magnitude of at most
   1,000,000), because each digit costs a lot of `eml` operators.
-- **No scientific notation.** Write `100000`, not `1e5`.
+- **No scientific notation.** Write `100000`, not `1e5`. Numbers are written
+  without spaces or a decimal comma: `1000` and `2.5`, not `1 000` or `2,5`.
 - **Radians only.** There is no degree mode.
 - The visible tree is capped at 1500 positions; very large builds are shown
   folded and can be unfolded part by part.

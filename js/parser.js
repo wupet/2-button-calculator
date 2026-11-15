@@ -59,6 +59,18 @@
         if (src[i + text.length] === '.') {
           throw new ParseError("Unexpected character '.'", i + text.length);
         }
+        // R24: two number tokens in a row can only come from a space between
+        // them ("1 000"), which is a typo far more often than a product.
+        const prev = toks[toks.length - 1];
+        if (prev && prev.t === 'num') {
+          let joined = prev.text + text;
+          let j = i + text.length;
+          for (let m; (m = /^\s+([0-9]+(?:\.[0-9]*)?)/.exec(src.slice(j)));) {
+            joined += m[1];
+            j += m[0].length;
+          }
+          throw new ParseError('Two numbers in a row — did you mean ' + joined + '?', i);
+        }
         toks.push({ t: 'num', text, value: parseFloat(text), pos: i });
         i += text.length;
       } else if (/[A-Za-z]/.test(ch)) {
@@ -93,8 +105,17 @@
 
     const peek = () => toks[k];
     const isOp = (tok, op) => tok.t === 'op' && tok.op === op;
-    const unexpected = (tok) => new ParseError(
-      tok.t === 'end' ? 'Unexpected end of input' : "Unexpected '" + tok.text + "'", tok.pos);
+    const unexpected = (tok) => {
+      // R24: outside a function call's argument list, "2,5" is a decimal comma.
+      const at = toks.indexOf(tok);
+      const before = toks[at - 1];
+      const after = toks[at + 1];
+      if (isOp(tok, ',') && before && before.t === 'num' && after && after.t === 'num' && !after.text.includes('.')) {
+        return new ParseError('Use a dot for decimals (' + before.text + '.' + after.text + ')', tok.pos);
+      }
+      return new ParseError(
+        tok.t === 'end' ? 'Unexpected end of input' : "Unexpected '" + tok.text + "'", tok.pos);
+    };
     const enter = (tok) => {
       if (++depth > MAX_DEPTH) throw new ParseError('Expression is nested too deeply', tok.pos);
     };

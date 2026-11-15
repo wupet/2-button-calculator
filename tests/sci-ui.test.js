@@ -175,10 +175,10 @@ test('resultView: mismatch leads with standard math too (synthetic result)', () 
   assert.deepEqual(modeSci.resultView(r), { big: '3', bigLabel: 'standard math', sub: 'EML tree gave: 1 + 2i' });
 });
 
-test('resultView: undefined shows its value plainly; error shows nothing', () => {
+test('resultView: undefined shows no value (the badge already says undefined); error shows nothing', () => {
   const u = EML.run('1/0');
   assert.equal(u.status, 'undefined');
-  assert.deepEqual(modeSci.resultView(u), { big: 'undefined', bigLabel: '', sub: '' });
+  assert.deepEqual(modeSci.resultView(u), { big: '—', bigLabel: '', sub: '' });
   assert.deepEqual(modeSci.resultView(EML.run('sin(')), { big: '', bigLabel: '', sub: '' });
 });
 

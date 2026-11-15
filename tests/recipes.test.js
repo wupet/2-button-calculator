@@ -126,23 +126,15 @@ test('R shortcuts exist for every recipe except the raw leaf', () => {
 test('paper Table 4 K values', () => {
   const x = calls.variable('x');
   const y = calls.variable('y');
-  const rows = [];
   for (const r of recipes) {
     const call = R.call(r.id, ...[x, y].slice(0, r.arity));
     const K = dag.K(call.root);
-    rows.push([r.id, r.arity, K, dag.height(call.root), dag.uniqueCount(call.root), r.paperK ?? '']);
     if (r.paperK !== undefined) assert.equal(K, r.paperK, `K(${r.id})`);
   }
   const want = { exp: 3, e: 3, ln: 7, zero: 7, sub: 11, add: 27, mul: 41, minusOne: 17, two: 27 };
   for (const [id, k] of Object.entries(want)) {
     assert.equal(byId[id].paperK, k, `paperK stored for ${id}`);
   }
-  const pad = (s, n) => String(s).padEnd(n);
-  const lines = ['id        arity  K            height  unique  paperK'];
-  for (const [id, ar, K, h, u, pk] of rows) {
-    lines.push(`${pad(id, 10)}${pad(ar, 7)}${pad(K, 13)}${pad(h, 8)}${pad(u, 8)}${pk}`);
-  }
-  console.log('\nK table (variables x,y count as leaves)\n' + lines.join('\n'));
 });
 
 test('integers by doubling and rationals', () => {

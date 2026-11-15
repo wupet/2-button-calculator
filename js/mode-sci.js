@@ -7,7 +7,8 @@
   // (breakdown, skeleton, positionsFor, badgeFor, exampleFor, sampleK) have no
   // DOM; init() is a no-op without a document.
 
-  const count = (n) => Number(n).toLocaleString('en-US');
+  // Exact below 1e9; above that the count (a float sum) is only approximate.
+  const count = (n) => (Number(n) >= 1e9 ? '≈' + Number(n).toPrecision(2) : Number(n).toLocaleString('en-US'));
   const CAP = 1500; // visible-tree cap, positions
   const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
@@ -211,27 +212,68 @@
     return out;
   }
 
-  // What the result card shows as the big value. When the EML route itself failed
-  // (overflow, mismatch) the standard-math value leads and the tree's own value is
-  // shown smaller beneath it, so a wrong number is never presented as the answer.
+  // What the result card shows as the big value. ok and limit show standard math
+  // rounded to the digits the EML tree confirms (C.formatVerified). When the EML
+  // route itself failed (overflow, mismatch) the standard-math value leads and the
+  // tree's own value is shown smaller beneath it; when standard math has no 64-bit
+  // value either, no number is shown at all.
   //   -> {big, bigLabel, sub}
+  const NO_VALUE = '—';
   function resultView(result) {
     const fmt = (z) => C.format(z, 10);
+    // The tree's own value; NaN reads "no number" (not "undefined", which is a status).
+    const tree = (z) => 'EML tree gave: ' + (Number.isNaN(z.re) || Number.isNaN(z.im) ? 'no number' : fmt(z));
     switch (result.status) {
       case 'ok':
       case 'limit':
+        return { big: C.formatVerified(result.value, result.ref), bigLabel: '', sub: '' };
       case 'undefined':
-        return { big: fmt(result.value), bigLabel: '', sub: '' };
+        return { big: NO_VALUE, bigLabel: '', sub: '' };
       case 'overflow':
+        if (result.range || !C.isFinite(result.ref)) {
+          const raw = result.value;
+          const sub = !raw ? '' : tree(raw) + (C.isFinite(raw) ? ' (can’t be checked)' : '');
+          const big = result.range && result.range.exceeds ? 'too large for 64-bit floats' : 'out of 64-bit float range';
+          return { big, bigLabel: '', sub };
+        }
+        return { big: fmt(result.ref), bigLabel: 'standard math', sub: tree(result.value) };
       case 'mismatch':
-        return { big: fmt(result.ref), bigLabel: 'standard math', sub: 'EML tree gave: ' + fmt(result.value) };
+        return { big: fmt(result.ref), bigLabel: 'standard math', sub: tree(result.value) };
       default:
         return { big: '', bigLabel: '', sub: '' };
     }
   }
 
-  // Values that came from nudged literals carry ~1e-14 noise; show it as zero.
-  const tidy = (z) => C.cx(Math.abs(z.re) < 1e-6 ? 0 : z.re, Math.abs(z.im) < 1e-6 ? 0 : z.im);
+  // The small "standard math" line under an ok or limit result: how far the two
+  // independent computations agree (the big value already is the standard one).
+  function refLine(result) {
+    if (result.status !== 'ok' && result.status !== 'limit') return '';
+    const v = C.verify(result.value, result.ref);
+    if (!v) return '';
+    if (result.ref.re === 0 && result.ref.im === 0) return 'Standard math: 0';
+    if (v.digits === 0) return 'Standard math: 0 (to within 1e-12)';
+    if (v.digits >= 10) return 'Standard math agrees to all 10 digits shown';
+    return `Standard math agrees to ${v.digits} significant digit${v.digits === 1 ? '' : 's'}`;
+  }
+
+  // The value line of a breakdown card for one piece: its standard-math value
+  // (the reference of the piece's own subtree), shown through the verified
+  // formatter when the EML tree agrees there, and marked when it does not.
+  //   ast: the piece's first occurrence; z: the EML tree's value there;
+  //   status: the whole result's status ('limit' uses nudged literals).
+  //   -> {text, differs}
+  function pieceValue(ast, z, status) {
+    if (ast.type === 'num') {
+      const v = C.cx(ast.value, 0);
+      return { text: C.formatVerified(v, v), differs: false };
+    }
+    const t = EML.referenceTrace(ast);
+    if (t.failure || !C.isFinite(t.value)) return { text: NO_VALUE, differs: false };
+    const ref = t.value;
+    const agrees = C.isFinite(z) && (status === 'limit' ? C.approxEq(z, ref, 1e-6, 1e-6) : C.approxEq(z, ref, 1e-7));
+    if (agrees) return { text: C.formatVerified(z, ref), differs: false };
+    return { text: C.format(ref, 10) + ' · EML tree differs here', differs: true };
+  }
 
   // ---- DOM ------------------------------------------------------------------------
   const SPEEDS = [
@@ -331,7 +373,7 @@
     const foldAllBtn = btn('Fold all', 'btn');
     const fitBtn = btn('Fit tree', 'btn btn-fit', { title: 'Re-centre and zoom to show the whole tree' });
     const xmsgEl = el('p', { class: 'hint sci-xmsg', role: 'status', 'aria-live': 'polite' });
-    const limitEl = el('p', { class: 'sci-limit', hidden: '', text: 'Limit mode: stepping uses literals nudged by a tiny amount (a 0 shows as about 1e-12), so the in-between values are approximate. The last step shows the limit.' });
+    const limitEl = el('p', { class: 'sci-limit', hidden: '', text: 'Limit mode: stepping uses literals nudged by a tiny amount (a 0 shows as a tiny number such as 1e-14), so the in-between values are approximate. The last step shows the limit.' });
     const treeBox = el('div', { class: 'sci-tree' });
     const textBox = el('div', { class: 'sci-text', hidden: '', tabindex: '0', 'aria-label': 'Step-by-step rewriting' });
     const backBtn = btn('◀', 'btn', { 'aria-label': 'Step back' });
@@ -393,8 +435,11 @@
     let pvUnfolded = new Set();
 
     const evalNode = (node) => {
-      // The nudged literals leave ~1e-14 noise on the final number; show the tidy limit.
-      if (result.status === 'limit' && node === result.root) return result.value;
+      // The resolved root shows the same verified value as the result card.
+      if ((result.status === 'ok' || result.status === 'limit') && node === result.root) {
+        const v = C.verify(result.value, result.ref);
+        if (v) return v.value;
+      }
       return ev(node);
     };
 
@@ -503,8 +548,8 @@
       noteEl.textContent = result.note;
       noteEl.hidden = !result.note;
       // Overflow and mismatch already lead with the standard value; repeat it only where the EML value leads.
-      refEl.hidden = !(result.status === 'ok' || result.status === 'limit');
-      refEl.textContent = 'Standard math: ' + C.format(result.ref, 10);
+      refEl.textContent = refLine(result);
+      refEl.hidden = !refEl.textContent;
       statsEl.textContent = '';
       for (const [label, value] of [
         ['pure-EML size', `${count(result.K)} symbols`],
@@ -516,11 +561,10 @@
     }
 
     // ---- breakdown -----------------------------------------------------------------
-    function pieceValue(entry) {
+    function pieceText(entry) {
       const first = skel.find((s) => s.key === entry.key);
-      if (entry.kind === 'number') return C.cx(first.ast.value, 0);
-      const z = ev(first.call.root);
-      return result.status === 'limit' ? tidy(z) : z;
+      const pv = pieceValue(first.ast, ev(first.call.root), result.status);
+      return 'value here: ' + pv.text;
     }
 
     function renderBreakdown() {
@@ -532,7 +576,7 @@
           el('span', { class: 'sci-piece-name', text: entry.name }),
           el('span', { class: 'sci-piece-f mono', text: entry.formula }),
           el('span', { class: 'sci-piece-meta', text: meta }),
-          el('span', { class: 'sci-piece-val value', text: 'value here: ' + C.format(pieceValue(entry), 10) }));
+          el('span', { class: 'sci-piece-val value', text: pieceText(entry) }));
         card.dataset.key = entry.key;
         piecesEl.append(card);
       }
@@ -745,6 +789,6 @@
   }
 
   EML.modeSci = {
-    init, resultView, breakdown, skeleton, positionsFor, badgeFor, exampleFor, sampleK, numberK, SPEEDS, FUNC_KEYS,
+    init, resultView, refLine, pieceValue, count, breakdown, skeleton, positionsFor, badgeFor, exampleFor, sampleK, numberK, SPEEDS, FUNC_KEYS,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

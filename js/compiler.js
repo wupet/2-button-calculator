@@ -50,21 +50,79 @@
     }
   };
 
-  // Standard-math value of the AST. Literals are cx(v, +0).
-  EML.reference = (ast) => {
+  const opOf = (a) => (a.type === 'neg' ? 'neg' : a.type === 'bin' ? binOps[a.op] : a.name);
+  const isZero = (z) => z.re === 0 && z.im === 0;
+  const isReal1 = (z, v) => z.re === v && z.im === 0;
+
+  // A genuine singularity of standard math: the op is not defined at these
+  // (finite) inputs. Checked only where a node's output is not finite.
+  const POLES = {
+    div: (a, b) => isZero(b),
+    inv: (z) => isZero(z),
+    ln: (z) => isZero(z),
+    logb: (b, z) => isZero(z) || isReal1(b, 1),
+    pow: (a) => isZero(a),
+    artanh: (z) => isReal1(z, 1) || isReal1(z, -1),
+    arctan: (z) => z.re === 0 && (z.im === 1 || z.im === -1),
+  };
+  // Ops that can give an exact 0 from nonzero inputs without any underflow
+  // (cancellation, ln 1, arcosh 1, ...). Anywhere else, a 0 out of nonzero
+  // inputs means a value fell below the smallest double.
+  const EXACT_ZERO = new Set(['add', 'sub', 'avg', 'hypot', 'ln', 'logb', 'arcosh', 'arccos']);
+  // Ops whose overflow means the result itself is beyond the double range
+  // (unlike, say, an inverse function that squares its argument internally).
+  const GROWS = new Set(['exp', 'pow', 'sinh', 'cosh', 'mul', 'div', 'inv', 'add', 'sub', 'neg',
+    'sqr', 'half', 'avg', 'hypot', 'sin', 'cos', 'tan']);
+
+  // Standard-math value of the AST, plus the first node (post-order) whose
+  // inputs are finite but whose output is not:
+  //   failure = null | {kind: 'pole'} | {kind: 'range', cause: 'overflow'|'underflow', atRoot, grows}
+  // A "pole" whose zero input only exists because a value underflowed to 0 is a
+  // range failure, not a pole (ln(exp(-800)) is -800, not -infinity).
+  // Literals are cx(v, +0).
+  EML.referenceTrace = (ast) => {
     const rec = EML.recipeById;
+    let failure = null;
+    // -> {v: value, uf: true when v is a 0 produced by underflow}
     const go = (a) => {
+      let kids;
       switch (a.type) {
-        case 'num': return C.cx(a.value, 0);
+        case 'num': return { v: C.cx(a.value, 0), uf: false };
         case 'const':
-          return a.name === 'pi' ? C.cx(Math.PI, 0) : a.name === 'e' ? C.cx(Math.E, 0) : C.cx(0, 1);
-        case 'neg': return rec.neg.ref(go(a.arg));
-        case 'bin': return rec[binOps[a.op]].ref(go(a.left), go(a.right));
-        case 'call': return rec[a.name].ref(...a.args.map(go));
+          return {
+            v: a.name === 'pi' ? C.cx(Math.PI, 0) : a.name === 'e' ? C.cx(Math.E, 0) : C.cx(0, 1),
+            uf: false,
+          };
+        case 'neg': kids = [go(a.arg)]; break;
+        case 'bin': kids = [go(a.left), go(a.right)]; break;
+        case 'call': kids = a.args.map(go); break;
         default: throw new Error('Unknown AST node ' + a.type);
       }
+      const op = opOf(a);
+      const args = kids.map((k) => k.v);
+      const anyUf = kids.some((k) => k.uf);
+      const v = rec[op].ref(...args);
+      if (!failure && args.every(C.isFinite) && !C.isFinite(v)) {
+        if (POLES[op] && POLES[op](...args) && !anyUf) failure = { kind: 'pole', node: a };
+        else {
+          failure = {
+            kind: 'range', node: a, atRoot: a === ast, grows: GROWS.has(op),
+            cause: anyUf ? 'underflow' : 'overflow',
+          };
+        }
+      }
+      const uf = isZero(v) && (anyUf || (!EXACT_ZERO.has(op) && args.every((x) => !isZero(x))));
+      return { v, uf };
     };
-    return go(ast);
+    return { value: go(ast).v, failure };
+  };
+
+  // Standard-math value of the AST (a complex number). Pass `info` to also
+  // receive the trace's failure (see referenceTrace).
+  EML.reference = (ast, info) => {
+    const t = EML.referenceTrace(ast);
+    if (info) info.failure = t.failure;
+    return t.value;
   };
 
   const countNodes = (ast) => {
@@ -94,36 +152,54 @@
     return out;
   };
 
-  // Zero-valued literals are nudged by an absolute step; nonzero ones by a relative 1e-12.
-  const nudged = (lits, sign, zeroStep) => {
+  // R23: every literal gets its own nudge factor (1 + k/7) for the k-th literal,
+  // so a - a is no longer exactly 0 once nudged. Zero literals move by an
+  // absolute step, nonzero ones by a relative one.
+  const nudged = (lits, sign, step) => {
     const map = new Map();
-    for (const l of lits) {
-      const v = l.value === 0 ? sign * zeroStep : l.value * (1 + sign * 1e-12);
+    lits.forEach((l, k) => {
+      const f = 1 + k / 7;
+      const v = l.value === 0 ? sign * step.zero * f : l.value * (1 + sign * step.rel * f);
       map.set(l.id, C.cx(v, EML.ZERO));
-    }
+    });
     return map;
   };
 
-  // The zero step is tried small-to-large. 1e-14 keeps sqrt(0) honest (sqrt(step) << 1e-6), but the
-  // per-node snap erases relative parts below 1e-12, so sin(0) (whose numerator is exp(i*step) -
-  // exp(-i*step)) only survives from about 1e-12 up. Each level is fully validated, so a
+  // Steps are tried small-to-large. A zero step of 1e-14 keeps sqrt(0) honest (sqrt(step) << 1e-6),
+  // but the per-node snap erases relative parts below 1e-12, so sin(0) (whose numerator is
+  // exp(i*step) - exp(-i*step)) only survives from about 1e-12 up; likewise a cancellation
+  // a - a leaves only ~rel*a/7. Each level is fully validated against the reference, so a
   // larger step can never turn a disagreement into a 'limit'.
-  const ZERO_STEPS = [1e-14, 1e-13, 1e-12, 1e-11, 1e-10];
-
-  const clean = (z) => C.cx(Math.abs(z.re) < 1e-6 ? 0 : z.re, Math.abs(z.im) < 1e-6 ? 0 : z.im);
+  const STEPS = [1e-14, 1e-13, 1e-12, 1e-11, 1e-10].map((x) => ({ zero: x, rel: x }));
 
   const empty = (src, status, note, extra) => Object.assign({
     src, ast: null, call: null, root: null, K: null, height: null, unique: null,
-    value: null, raw: null, ref: null, status, note, flags: null, overrides: null,
+    value: null, raw: null, ref: null, status, note, flags: null, overrides: null, range: null,
   }, extra);
+
+  const UNDEFINED_NOTE = 'Not defined here in standard math either.';
+  const OVERFLOW_NOTE = '64-bit floating point overflows along the way (a value beyond ~1.8e308), ' +
+    'so neither side can give a number.';
+  const UNDERFLOW_NOTE = '64-bit floating point runs out of range along the way (a value below ~1e-308 ' +
+    'rounds to 0), so neither side can give a number.';
+  const EXCEEDS = ' The true value exceeds ~1.8e308.';
+
+  // Note for a range failure of the reference (see referenceTrace).
+  const rangeNote = (f) => (f.cause === 'underflow' ? UNDERFLOW_NOTE
+    : OVERFLOW_NOTE + (f.atRoot && f.grows ? EXCEEDS : ''));
+
+  // Note for a genuine EML/standard-math disagreement.
+  EML.mismatchNote = (raw, ref) => (C.isFinite(raw)
+    ? 'The EML tree and standard math disagree here (branch cut or precision). '
+    : 'The EML route hits ln 0 / ∞ here, so the tree can’t finish. ') +
+    'Standard math says ' + C.format(ref) + '.';
 
   // Limit check: nudge every literal slightly each way; if the EML tree settles
   // on the reference value from both sides, report it as a limit.
   const tryLimit = (rootNode, ref) => {
     const lits = collectLits(rootNode);
     if (!lits.length) return null;
-    const steps = lits.some((l) => l.value === 0) ? ZERO_STEPS : [ZERO_STEPS[0]];
-    for (const step of steps) {
+    for (const step of STEPS) {
       const plus = nudged(lits, +1, step);
       const minus = nudged(lits, -1, step);
       const a = dag.evaluate(rootNode, { overrides: plus }).value;
@@ -132,7 +208,7 @@
       if (!C.approxEq(a, b, 1e-6, 1e-6)) continue;
       const avg = C.cx((a.re + b.re) / 2, (a.im + b.im) / 2);
       if (!C.approxEq(avg, ref, 1e-6, 1e-6)) continue;
-      return { value: clean(avg), overrides: plus };
+      return { value: avg, overrides: plus };
     }
     return null;
   };
@@ -149,29 +225,41 @@
       throw e; // unexpected: caught by the EML.run safety net
     }
     const rootNode = call.root;
-    const ref = EML.reference(ast);
+    const info = {};
+    const ref = EML.reference(ast, info);
     const base = {
       src, ast, call, root: rootNode,
       K: dag.K(rootNode), height: dag.height(rootNode), unique: dag.uniqueCount(rootNode),
-      value: null, raw: null, ref, status: null, note: '', flags: null, overrides: null,
+      value: null, raw: null, ref, status: null, note: '', flags: null, overrides: null, range: null,
     };
 
-    // 1. Standard math itself has no finite answer.
-    if (!C.isFinite(ref)) {
-      return Object.assign(base, {
-        status: 'undefined', value: ref, note: 'Not defined here in standard math either.',
-      });
+    // 1. Standard math itself has no answer: a genuine pole somewhere (1/0, ln 0,
+    //    artanh 1, ...; also 1/(1/0), whose root would otherwise come out finite).
+    if (info.failure && info.failure.kind === 'pole') {
+      return Object.assign(base, { status: 'undefined', value: ref, note: UNDEFINED_NOTE });
     }
 
-    // 2. The EML tree reproduces the reference.
     const { value: raw, flags } = dag.evaluate(rootNode, {});
     base.raw = raw;
     base.flags = flags;
+
+    // 2. The reference left the 64-bit range somewhere, so there is nothing to
+    //    check against: report it, and never present a number.
+    if (info.failure || !C.isFinite(ref)) {
+      const f = info.failure || { kind: 'range', cause: 'overflow', atRoot: true, grows: false };
+      return Object.assign(base, {
+        status: 'overflow', value: raw,
+        range: { cause: f.cause, atRoot: f.atRoot, exceeds: f.cause === 'overflow' && f.atRoot && f.grows },
+        note: rangeNote(f),
+      });
+    }
+
+    // 3. The EML tree reproduces the reference.
     if (C.isFinite(raw) && C.approxEq(raw, ref, 1e-7)) {
       return Object.assign(base, { status: 'ok', value: raw });
     }
 
-    // 3. A route computed an exp(...) beyond the 64-bit float range.
+    // 4. A route computed an exp(...) beyond the 64-bit float range.
     if (flags.overflow || flags.underflow) {
       return Object.assign(base, {
         status: 'overflow', value: raw,
@@ -180,7 +268,7 @@
       });
     }
 
-    // 4. Approaching the point from both sides gives the reference value.
+    // 5. Approaching the point from both sides gives the reference value.
     const lim = tryLimit(rootNode, ref);
     if (lim) {
       return Object.assign(base, {
@@ -189,12 +277,8 @@
       });
     }
 
-    // 5. Genuine disagreement.
-    return Object.assign(base, {
-      status: 'mismatch', value: raw,
-      note: 'The EML tree and standard math disagree here (branch cut or precision). ' +
-        'Standard math says ' + C.format(ref) + '.',
-    });
+    // 6. Genuine disagreement.
+    return Object.assign(base, { status: 'mismatch', value: raw, note: EML.mismatchNote(raw, ref) });
   };
 
   // Safety net: whatever happens inside, run() always returns a Result and never throws.
