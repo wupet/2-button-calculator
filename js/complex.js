@@ -108,10 +108,12 @@
       return (s === '1' ? '' : s) + 'i';
     };
     const sign = (v) => (v < 0 ? MINUS : '');
-    if (Math.abs(im) <= 1e-10 * Math.max(1, Math.abs(re))) {
+    // A part is dropped only when it is negligible relative to the other part
+    // (no absolute floor: 1e-20i is a value, not noise).
+    if (Math.abs(im) <= 1e-10 * Math.abs(re)) {
       return sign(re) + num(Math.abs(re), digits);
     }
-    if (Math.abs(re) <= 1e-10 * Math.max(1, Math.abs(im))) {
+    if (Math.abs(re) <= 1e-10 * Math.abs(im)) {
       return sign(im) + imagPart(im);
     }
     return sign(re) + num(Math.abs(re), digits) +

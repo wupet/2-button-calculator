@@ -77,8 +77,8 @@
   // Standard-math value of the AST, plus the first node (post-order) whose
   // inputs are finite but whose output is not:
   //   failure = null | {kind: 'pole'} | {kind: 'range', cause: 'overflow'|'underflow', atRoot, grows}
-  // A "pole" whose zero input only exists because a value underflowed to 0 is a
-  // range failure, not a pole (ln(exp(-800)) is -800, not -infinity).
+  // A value that underflows to 0 is itself a range failure (it comes first, so
+  // ln(exp(-800)) is reported as underflow, not as the pole ln 0).
   // Literals are cx(v, +0).
   EML.referenceTrace = (ast) => {
     const rec = EML.recipeById;
@@ -111,8 +111,13 @@
           };
         }
       }
-      const uf = isZero(v) && (anyUf || (!EXACT_ZERO.has(op) && args.every((x) => !isZero(x))));
-      return { v, uf };
+      const freshUf = isZero(v) && !anyUf && !EXACT_ZERO.has(op) && args.every((x) => !isZero(x));
+      // A value that fell below the smallest double is a range failure too: the
+      // 0 it leaves behind must never be trusted (exp(-800)*exp(400)*exp(400) is 1).
+      if (!failure && freshUf) {
+        failure = { kind: 'range', node: a, atRoot: a === ast, grows: false, cause: 'underflow' };
+      }
+      return { v, uf: freshUf || (isZero(v) && anyUf) };
     };
     return { value: go(ast).v, failure };
   };
@@ -180,7 +185,7 @@
   const UNDEFINED_NOTE = 'Not defined here in standard math either.';
   const OVERFLOW_NOTE = '64-bit floating point overflows along the way (a value beyond ~1.8e308), ' +
     'so neither side can give a number.';
-  const UNDERFLOW_NOTE = '64-bit floating point runs out of range along the way (a value below ~1e-308 ' +
+  const UNDERFLOW_NOTE = '64-bit floating point runs out of range (a value below ~1e-308 ' +
     'rounds to 0), so neither side can give a number.';
   const EXCEEDS = ' The true value exceeds ~1.8e308.';
 

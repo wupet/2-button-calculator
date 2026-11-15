@@ -274,3 +274,33 @@ test('counts above 1e9 are shown approximately', () => {
   assert.equal(modeSci.count(1.234e26), '≈1.2e+26');
   assert.equal(modeSci.count(5e9), '≈5.0e+9');
 });
+
+// ---- follow-up: gaps found in final review ----------------------------------------
+test('count is exact up to and including 1e9 (the 0.000000001 card)', () => {
+  assert.equal(modeSci.count(1e9), '1,000,000,000');
+  const f = modeSci.breakdown(EML.parse('-0.000000001')).find((e) => e.key === 'num:0.000000001').formula;
+  assert.equal(f, '1 × (1 ÷ 1,000,000,000)');
+});
+
+test('tiny imaginary values are not zeroed by the formatter (no absolute floor)', () => {
+  assert.equal(C.formatVerified(cx(0, 1e-20), cx(0, 1e-20)), '1e-20i');
+  assert.equal(C.format(cx(0, 1e-11)), '1e-11i');
+  assert.equal(C.format(cx(1e-11, 0)), '1e-11');
+  const r = EML.run('i/10^20');
+  assert.equal(r.status, 'ok', r.note);
+  assert.equal(modeSci.resultView(r).big, '1e-20i');
+  // Relative noise is still dropped.
+  assert.equal(C.format(cx(1, 1e-17)), '1');
+});
+
+for (const src of ['exp(-800)*exp(400)*exp(400)', 'sqrt(exp(-800))', 'exp(-800)']) {
+  test(`an underflowed zero is never trusted as standard math: ${src}`, () => {
+    const r = EML.run(src);
+    assert.equal(r.status, 'overflow', `${src}: ${r.status} ${r.note}`);
+    assert.match(r.note, /below ~1e-308/);
+    assert.doesNotMatch(r.note, /Standard math says/);
+    const v = modeSci.resultView(r);
+    assert.doesNotMatch(v.big.replace('64-bit', ''), /\d|∞/);
+    assert.equal(v.bigLabel, '');
+  });
+}

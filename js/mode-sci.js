@@ -7,8 +7,8 @@
   // (breakdown, skeleton, positionsFor, badgeFor, exampleFor, sampleK) have no
   // DOM; init() is a no-op without a document.
 
-  // Exact below 1e9; above that the count (a float sum) is only approximate.
-  const count = (n) => (Number(n) >= 1e9 ? '≈' + Number(n).toPrecision(2) : Number(n).toLocaleString('en-US'));
+  // Exact up to 1e9; above that the count (a float sum) is only approximate.
+  const count = (n) => (Number(n) > 1e9 ? '≈' + Number(n).toPrecision(2) : Number(n).toLocaleString('en-US'));
   const CAP = 1500; // visible-tree cap, positions
   const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
