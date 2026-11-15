@@ -70,7 +70,6 @@ test('replaying every preset tape keypress-by-keypress recognizes it', () => {
     assert.equal(m.tape, tape, p.id);
     assert.equal(m.stack.length, 1, p.id);
     assert.equal(recognize(m.top.value), p.label, p.id);
-    console.log(`# ${p.id}: tape length ${tape.length}`);
   }
 });
 

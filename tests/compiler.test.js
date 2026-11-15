@@ -142,13 +142,20 @@ test('run never throws on pathological literals', () => {
 
 test('run safety net: unexpected internal errors become status error', () => {
   const orig = EML.reference;
+  const origErr = console.error;
+  const logged = [];
+  console.error = (...args) => { logged.push(args); };
   EML.reference = () => { throw new Error('boom'); };
   try {
     const r = EML.run('1+1');
     assert.equal(r.status, 'error');
     assert.equal(r.note, 'Something went wrong evaluating this expression.');
+    // The swallowed error is reported, not hidden.
+    assert.equal(logged.length, 1);
+    assert.equal(logged[0][1].message, 'boom');
   } finally {
     EML.reference = orig;
+    console.error = origErr;
   }
 });
 

@@ -141,7 +141,7 @@
       const svg = (this.svg = doc.createElementNS(SVG_NS, 'svg'));
       svg.setAttribute('class', 'tv-svg');
       svg.setAttribute('role', 'group');
-      svg.setAttribute('aria-label', 'Expression tree. Drag to pan, scroll or pinch to zoom.');
+      svg.setAttribute('aria-label', 'Expression tree. Drag to pan, pinch or Ctrl+scroll to zoom.');
       svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
       this.edgeLayer = doc.createElementNS(SVG_NS, 'g');
       this.edgeLayer.setAttribute('class', 'tv-edges');
@@ -154,7 +154,19 @@
       svg.addEventListener('pointerdown', (e) => this._onDown(e));
       svg.addEventListener('pointermove', (e) => this._onMove(e));
       svg.addEventListener('pointerup', (e) => this._onUp(e));
-      svg.addEventListener('pointercancel', (e) => this._onUp(e));
+      svg.addEventListener('pointercancel', () => this._reset());
+      svg.addEventListener('lostpointercapture', () => this._reset());
+      // With touch-action pan-x pan-y one finger belongs to the page. Two
+      // fingers are a pinch/pan of the tree: stop the page from also taking it.
+      svg.addEventListener('touchmove', (e) => {
+        if (e.touches.length >= 2 && e.cancelable) e.preventDefault();
+      }, { passive: false });
+      // A missed pointerup (released outside the window, tab switch) must not
+      // leave a ghost pointer that turns the next click into a pinch.
+      if (typeof root.addEventListener === 'function') {
+        this._onBlur = () => this._reset();
+        root.addEventListener('blur', this._onBlur);
+      }
 
       if (typeof root.ResizeObserver === 'function') {
         this._ro = new root.ResizeObserver(() => this._onResize());
@@ -227,6 +239,10 @@
         if (cls) el.setAttribute('class', cls);
         return el;
       };
+      if (clickable) {
+        // Invisible 44-unit-tall hit area so a fingertip can hit the 28-unit blob.
+        g.append(shape('rect', { x: -n.w / 2, y: -22, width: n.w, height: 44 }, 'tv-hit'));
+      }
       if (hl) {
         // Dashed ring: marks the frontier by shape, not by colour alone.
         if (n.kind === 'eml') g.append(shape('circle', { r: n.w / 2 + 5 }, 'tv-ring'));
@@ -323,13 +339,17 @@
       this._applyVB();
     }
 
+    // Plain wheel scrolls the page; zoom only with Ctrl/Cmd or a trackpad pinch
+    // (which browsers report as a wheel event with ctrlKey set).
     _onWheel(e) {
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       this._zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * unit * 0.0015));
     }
 
     _onDown(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return; // primary button only
       this._pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this._pointers.size === 1) {
         this._dragged = false;
@@ -348,6 +368,8 @@
     _onMove(e) {
       const p = this._pointers.get(e.pointerId);
       if (!p) return;
+      // Mouse moving with no button held: the pointerup was missed.
+      if (e.pointerType === 'mouse' && e.buttons === 0) { this._reset(); return; }
       if (this._pointers.size >= 2 && this._pinch) {
         p.x = e.clientX;
         p.y = e.clientY;
@@ -357,6 +379,8 @@
         this._pinch = next;
         return;
       }
+      // A lone finger scrolls the page (touch-action); only mouse/pen drags pan.
+      if (e.pointerType === 'touch') { p.x = e.clientX; p.y = e.clientY; return; }
       if (!this._dragged) {
         if (Math.hypot(e.clientX - this._downAt.x, e.clientY - this._downAt.y) < 5) return;
         this._dragged = true;
@@ -384,8 +408,17 @@
       }
     }
 
+    // Forget every active pointer (cancel, lost capture, window blur).
+    _reset() {
+      this._pointers.clear();
+      this._pinch = null;
+      this.svg.classList.remove('panning');
+      if (this._dragged) root.setTimeout(() => { this._dragged = false; }, 0);
+    }
+
     destroy() {
       if (this._ro) this._ro.disconnect();
+      if (this._onBlur && typeof root.removeEventListener === 'function') root.removeEventListener('blur', this._onBlur);
     }
   }
 

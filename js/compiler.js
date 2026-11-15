@@ -202,6 +202,7 @@
     try {
       return runUnsafe(src);
     } catch (e) {
+      if (typeof console !== 'undefined') console.error('EML.run: unexpected error', e);
       return empty(src, 'error', 'Something went wrong evaluating this expression.');
     }
   };

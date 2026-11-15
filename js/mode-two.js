@@ -55,7 +55,7 @@
     const badgeEl = el('span', { class: 'm2-badge', hidden: '' });
     const treeBox = el('div', { class: 'm2-tree' });
     const treeMsg = el('p', { class: 'hint m2-treemsg' });
-    const fitBtn = el('button', { type: 'button', class: 'btn m2-fit', text: 'Fit tree' });
+    const fitBtn = el('button', { type: 'button', class: 'btn btn-fit m2-fit', text: 'Fit tree', title: 'Re-centre and zoom to show the whole tree' });
 
     const calc = el('div', { class: 'card m2-calc' },
       el('h2', { class: 'm2-h', text: 'Build with two buttons' }),

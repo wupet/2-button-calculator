@@ -107,11 +107,8 @@ cite { font-style: italic; }
   letter-spacing: -0.01em;
   color: var(--ink);
   max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow-wrap: anywhere;
 }
-.formula::-webkit-scrollbar { display: none; }
-.formula .mono { white-space: nowrap; }
 
 .tagline {
   color: var(--muted);
@@ -161,14 +158,21 @@ cite { font-style: italic; }
   background: var(--surface);
   padding: 0;
   gap: 0;
-  overflow: hidden;
+  max-width: 100%;
 }
+/* No overflow:hidden on the container (it would clip the focus ring), so the
+   end buttons round their own outer corners to match the border. */
 .segmented button {
   border: 0;
   border-radius: 0;
   background: transparent;
   min-height: var(--touch);
+  min-width: 0;
+  padding-inline: 0.875rem;
 }
+.segmented button:first-child { border-radius: calc(var(--radius) - 1.5px) 0 0 calc(var(--radius) - 1.5px); }
+.segmented button:last-child { border-radius: 0 calc(var(--radius) - 1.5px) calc(var(--radius) - 1.5px) 0; }
+.segmented button:focus-visible { outline-offset: -4px; }
 .segmented button + button { border-left: 1.5px solid var(--line); }
 .segmented button[aria-pressed="true"] {
   background: var(--trace);
@@ -408,6 +412,14 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 
 /* ---------- tree view (SVG) ---------- */
 
+/* Fit tree: a clearly visible, trace-coloured control. */
+.btn-fit {
+  border-color: var(--trace);
+  color: var(--trace);
+  box-shadow: inset 0 0 0 1px var(--trace);
+}
+.btn-fit:hover { background: var(--surface-2); }
+
 .m2-tree {
   height: 20rem;
   max-height: 60vh;
@@ -416,9 +428,10 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
   background: var(--bg);
   overflow: hidden;
 }
-.tv-svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.tv-svg { display: block; width: 100%; height: 100%; touch-action: pan-x pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
 .tv-svg.panning { cursor: grabbing; }
 .tv-edges path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.tv-hit { fill: transparent; stroke: none; }
 .tv-label { font-family: var(--font-mono); font-size: 13px; font-weight: 600; fill: var(--ink); pointer-events: none; }
 .tv-shape { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
 .tv-eml .tv-shape { stroke: var(--trace); stroke-width: 2.25; }
@@ -517,7 +530,7 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .sci-stats strong { color: var(--ink); font-family: var(--font-mono); }
 .sci-msg:empty { display: none; }
 
-.sci-pieces { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); }
+.sci-pieces { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr)); }
 .sci-piece {
   display: grid;
   gap: 0.25rem;

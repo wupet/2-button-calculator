@@ -196,3 +196,70 @@ test('EML.dom exposes el, btn and a live reduceMotion', () => {
     if (saved === undefined) delete globalThis.matchMedia; else globalThis.matchMedia = saved;
   }
 });
+
+// Spec "Verification" list, scientific mode, end to end: status, value, the
+// result card text, every primitive in the dropdown, and step-resolve to the
+// final value in both the Tree and Text views.
+test('Verification list: scientific-mode expressions', () => {
+  const C = EML.C;
+  const num = (src) => EML.run(src).value;
+  const approx = (z, re, im = 0, tol = 1e-9) => {
+    assert.ok(Math.abs(z.re - re) <= tol * Math.max(1, Math.abs(re)), `re ${z.re} vs ${re}`);
+    assert.ok(Math.abs(z.im - im) <= tol * Math.max(1, Math.abs(im)), `im ${z.im} vs ${im}`);
+  };
+  const cases = [
+    ['ln(2)', Math.log(2)],
+    ['sin(2)+3', Math.sin(2) + 3],
+    ['sqrt(2)*pi', Math.SQRT2 * Math.PI],
+    ['2^10', 1024],
+    ['arcsin(0.5)', Math.asin(0.5)],
+  ];
+  for (const [src, want] of cases) {
+    const r = EML.run(src);
+    assert.equal(r.status, 'ok', src);
+    approx(r.value, want);
+    assert.deepEqual(modeSci.resultView(r), { big: C.format(r.value, 10), bigLabel: '', sub: '' }, src);
+  }
+
+  for (const [src, shown] of [['-1000', '−1000'], ['800+800', '1600']]) {
+    const r = EML.run(src);
+    assert.equal(r.status, 'overflow', src);
+    const v = modeSci.resultView(r);
+    assert.equal(v.big, shown, src);
+    assert.equal(v.bigLabel, 'standard math', src);
+  }
+
+  for (const src of ['sin(0)', '0*5']) {
+    const r = EML.run(src);
+    assert.equal(r.status, 'limit', src);
+    assert.equal(modeSci.resultView(r).big, '0', src);
+    assert.match(r.note, /limit/);
+  }
+
+  approx(num('ln(-2)'), Math.log(2), Math.PI);
+  assert.equal(modeSci.resultView(EML.run('ln(-2)')).big, '0.6931471806 + 3.141592654i');
+  approx(num('sqrt(-4)'), 0, 2);
+  assert.equal(modeSci.resultView(EML.run('sqrt(-4)')).big, '2i');
+
+  // The dropdown (breakdown) shows each primitive that the expression uses.
+  const used = (src) => modeSci.breakdown(EML.parse(src)).map((e) => e.key);
+  assert.deepEqual(used('sqrt(2)*pi'), ['r:sqrt', 'num:2', 'r:mul', 'r:pi']);
+  assert.deepEqual(used('2^10'), ['num:2', 'r:pow', 'num:10']);
+  assert.deepEqual(used('arcsin(0.5)'), ['r:arcsin', 'num:0.5']);
+
+  // Step-resolve reaches the final value, in both views (same Resolver feeds both).
+  for (const src of ['ln(2)', 'sin(2)+3', 'sqrt(2)*pi', '2^10', 'arcsin(0.5)']) {
+    const res = EML.run(src);
+    for (const unfoldAll of [false, true]) {
+      const vm = EML.viewModel.build(res.call, { unfoldAll }, 1500);
+      if (vm.tooBig) continue;
+      const resolver = new EML.Resolver(vm.root, EML.dag.makeEvaluator({}));
+      while (!resolver.done && resolver.step().length) { /* to the end */ }
+      assert.ok(resolver.done, `${src} unfoldAll=${unfoldAll}`);
+      approx(resolver.values.get(vm.root.path), res.value.re, res.value.im);
+      const lines = EML.TextView.serialize(vm.root, resolver);
+      const last = lines[lines.length - 1].map((s) => s.text).join('');
+      assert.equal(last, C.format(resolver.values.get(vm.root.path), 10), `${src} text view`);
+    }
+  }
+});

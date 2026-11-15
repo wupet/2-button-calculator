@@ -329,7 +329,7 @@
     const viewToggle = el('div', { class: 'segmented', role: 'group', 'aria-label': 'View' }, treeBtn, textBtn);
     const unfoldAllBtn = btn('Unfold all', 'btn');
     const foldAllBtn = btn('Fold all', 'btn');
-    const fitBtn = btn('Fit tree', 'btn');
+    const fitBtn = btn('Fit tree', 'btn btn-fit', { title: 'Re-centre and zoom to show the whole tree' });
     const xmsgEl = el('p', { class: 'hint sci-xmsg', role: 'status', 'aria-live': 'polite' });
     const limitEl = el('p', { class: 'sci-limit', hidden: '', text: 'Limit mode: stepping uses literals nudged by a tiny amount (a 0 shows as about 1e-12), so the in-between values are approximate. The last step shows the limit.' });
     const treeBox = el('div', { class: 'sci-tree' });
@@ -344,7 +344,7 @@
     const stepsEl = el('span', { class: 'sci-steps mono', 'aria-live': 'polite' });
     const expandCard = el('div', { class: 'card sci-card', hidden: '' },
       el('h2', { class: 'sci-h', text: 'Expanded view' }),
-      el('p', { class: 'hint', text: 'Tap a dashed blob to unfold it one level. Press ▶ to resolve the tree from the leaves up.' }),
+      el('p', { class: 'hint', text: 'Tap a dashed blob to unfold it one level. Press ▶ to resolve the tree from the leaves up. Pinch or Ctrl+scroll to zoom the tree; Fit tree resets the view.' }),
       el('div', { class: 'sci-bar' }, viewToggle, unfoldAllBtn, foldAllBtn, fitBtn),
       limitEl, xmsgEl, treeBox, textBox,
       el('div', { class: 'sci-ctl' }, backBtn, stepBtn, playBtn, speedSel, resetBtn, stepsEl));
