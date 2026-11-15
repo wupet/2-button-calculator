@@ -121,3 +121,53 @@ test('perf: sin(cos(tan(2)))+3', () => {
   assert.equal(r.status, 'ok', r.note);
   assert.ok(ms < 2000, `took ${ms} ms`);
 });
+
+test('numberToRational is exact for long zero tails and rejects absurd sizes', () => {
+  assert.deepEqual(EML.numberToRational('0.5' + '0'.repeat(25)), { p: 1, q: 2 });
+  assert.deepEqual(EML.numberToRational('000012.50'), { p: 25, q: 2 });
+  assert.throws(() => EML.numberToRational('0.' + '0'.repeat(400) + '1'), (e) =>
+    e instanceof EML.ParseError && /Number too long/.test(e.message));
+  assert.throws(() => EML.numberToRational('1' + '0'.repeat(400)), (e) =>
+    e instanceof EML.ParseError && /Number too long/.test(e.message));
+});
+
+test('run never throws on pathological literals', () => {
+  let r = EML.run('0.5' + '0'.repeat(400));
+  assert.equal(r.status, 'ok');
+  near(r.value, 0.5);
+  r = EML.run('0.' + '0'.repeat(400) + '1');
+  assert.equal(r.status, 'error');
+  assert.match(r.note, /Number too long/);
+});
+
+test('run safety net: unexpected internal errors become status error', () => {
+  const orig = EML.reference;
+  EML.reference = () => { throw new Error('boom'); };
+  try {
+    const r = EML.run('1+1');
+    assert.equal(r.status, 'error');
+    assert.equal(r.note, 'Something went wrong evaluating this expression.');
+  } finally {
+    EML.reference = orig;
+  }
+});
+
+test('mismatch: arccos(2) disagrees honestly (branch cut)', () => {
+  const r = EML.run('arccos(2)');
+  assert.equal(r.status, 'mismatch');
+  assert.match(r.note, /standard math/i);
+  assert.ok(r.raw && r.ref);
+});
+
+test('tan(pi/2) is neither ok nor a limit', () => {
+  const r = EML.run('tan(pi/2)');
+  assert.notEqual(r.status, 'ok');
+  assert.notEqual(r.status, 'limit');
+  assert.match(r.note, /standard math/i);
+});
+
+test('run: scientific notation is an error', () => {
+  const r = EML.run('1e5');
+  assert.equal(r.status, 'error');
+  assert.match(r.note, /Scientific notation/);
+});

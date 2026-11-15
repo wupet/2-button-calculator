@@ -12,24 +12,26 @@
   const LITERAL_ERR = 'Number too long to build in EML \u2014 round it to 6 digits';
   const TOO_LONG = 'Expression too long for this demo';
 
-  const gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+  const bgcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+  const MAX_FRAC_DIGITS = 9; // keeps q <= 1e9, exact in a double
 
   // Exact decimal text -> reduced fraction {p, q}. Enforces the literal cap
-  // (<= 6 significant digits, value <= 1e6).
+  // (<= 6 significant digits, value <= 1e6, at most 9 decimal places once
+  // trailing zeros are dropped). Pure digit-string/BigInt math, so any length is safe.
   EML.numberToRational = (text) => {
     const m = /^(\d*)(?:\.(\d*))?$/.exec(text);
     if (!m || (m[1] === '' && !m[2])) throw new EML.ParseError("Unexpected number '" + text + "'", 0);
-    const intPart = m[1] || '';
-    const frac = m[2] || '';
-    const digits = (intPart + frac).replace(/^0+/, '').replace(/0+$/, '');
-    if (digits.length > 6) throw new EML.ParseError(LITERAL_ERR, 0);
-    let p = parseInt((intPart + frac) || '0', 10);
-    let q = Math.pow(10, frac.length);
-    if (p / q > 1e6) throw new EML.ParseError(LITERAL_ERR, 0);
-    const g = gcd(p, q) || 1;
+    const intPart = m[1].replace(/^0+/, '');
+    const frac = (m[2] || '').replace(/0+$/, '');
+    const sig = (intPart + frac).replace(/^0+/, '').replace(/0+$/, '');
+    if (sig.length > 6 || frac.length > MAX_FRAC_DIGITS) throw new EML.ParseError(LITERAL_ERR, 0);
+    let p = BigInt((intPart + frac) || '0');
+    let q = 10n ** BigInt(frac.length);
+    if (p > 1000000n * q) throw new EML.ParseError(LITERAL_ERR, 0);
+    const g = bgcd(p, q);
     p /= g;
     q /= g;
-    return { p, q };
+    return { p: Number(p), q: Number(q) };
   };
 
   const binOps = { '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '^': 'pow' };
@@ -135,7 +137,7 @@
     return null;
   };
 
-  EML.run = (src) => {
+  const runUnsafe = (src) => {
     let ast;
     let call;
     try {
@@ -144,7 +146,7 @@
       call = EML.compile(ast);
     } catch (e) {
       if (e instanceof EML.ParseError) return empty(src, 'error', e.message);
-      throw e;
+      throw e; // unexpected: caught by the EML.run safety net
     }
     const rootNode = call.root;
     const ref = EML.reference(ast);
@@ -193,5 +195,14 @@
       note: 'The EML tree and standard math disagree here (branch cut or precision). ' +
         'Standard math says ' + C.format(ref) + '.',
     });
+  };
+
+  // Safety net: whatever happens inside, run() always returns a Result and never throws.
+  EML.run = (src) => {
+    try {
+      return runUnsafe(src);
+    } catch (e) {
+      return empty(src, 'error', 'Something went wrong evaluating this expression.');
+    }
   };
 })(typeof window !== 'undefined' ? window : globalThis);

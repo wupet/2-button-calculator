@@ -53,6 +53,9 @@
       if (/\s/.test(ch)) { i++; continue; }
       if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(src[i + 1] || ''))) {
         const text = /^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)/.exec(src.slice(i))[0];
+        if (/^[eE][+-]?[0-9]/.test(src.slice(i + text.length, i + text.length + 3))) {
+          throw new ParseError("Scientific notation isn't supported — write the number out (e.g. 100000)", i);
+        }
         if (src[i + text.length] === '.') {
           throw new ParseError("Unexpected character '.'", i + text.length);
         }

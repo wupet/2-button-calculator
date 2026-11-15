@@ -158,3 +158,19 @@ test('pathological nesting yields ParseError, not RangeError', () => {
   perr('√'.repeat(100000) + '1');
   assert.equal(p('('.repeat(50) + '1' + ')'.repeat(50)), '1');
 });
+
+test('scientific notation is rejected (R11)', () => {
+  for (const src of ['1e5', '2e-3', '1E+4', '2.5e3', '3 + 1e5']) {
+    assert.throws(() => parse(src), (e) => e instanceof ParseError &&
+      e.message === "Scientific notation isn't supported — write the number out (e.g. 100000)", src);
+  }
+});
+
+test('number followed by Euler e still means implicit multiplication', () => {
+  assert.equal(p('2e'), '(* 2 e)');
+  assert.equal(p('2e*5'), '(* (* 2 e) 5)');
+  assert.equal(p('2(e)'), '(* 2 e)');
+  assert.equal(p('e^2'), '(^ e 2)');
+  assert.equal(p('2e^2'), '(* 2 (^ e 2))');
+  assert.equal(p('2e+x'.replace('x', 'e')), '(+ (* 2 e) e)');
+});
