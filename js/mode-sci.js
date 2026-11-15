@@ -211,6 +211,25 @@
     return out;
   }
 
+  // What the result card shows as the big value. When the EML route itself failed
+  // (overflow, mismatch) the standard-math value leads and the tree's own value is
+  // shown smaller beneath it, so a wrong number is never presented as the answer.
+  //   -> {big, bigLabel, sub}
+  function resultView(result) {
+    const fmt = (z) => C.format(z, 10);
+    switch (result.status) {
+      case 'ok':
+      case 'limit':
+      case 'undefined':
+        return { big: fmt(result.value), bigLabel: '', sub: '' };
+      case 'overflow':
+      case 'mismatch':
+        return { big: fmt(result.ref), bigLabel: 'standard math', sub: 'EML tree gave: ' + fmt(result.value) };
+      default:
+        return { big: '', bigLabel: '', sub: '' };
+    }
+  }
+
   // Values that came from nudged literals carry ~1e-14 noise; show it as zero.
   const tidy = (z) => C.cx(Math.abs(z.re) < 1e-6 ? 0 : z.re, Math.abs(z.im) < 1e-6 ? 0 : z.im);
 
@@ -247,20 +266,7 @@
     const doc = root.document;
     if (!doc) return;
 
-    const el = (tag, props = {}, ...kids) => {
-      const node = doc.createElement(tag);
-      for (const k of Object.keys(props)) {
-        if (k === 'class') node.className = props[k];
-        else if (k === 'text') node.textContent = props[k];
-        else node.setAttribute(k, props[k]);
-      }
-      for (const kid of kids) node.append(kid);
-      return node;
-    };
-    const btn = (text, cls, props = {}) =>
-      el('button', Object.assign({ type: 'button', class: cls, text }, props));
-
-    const reduceMotion = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const { el, btn } = EML.dom;
     const coarse = !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches);
 
     // ---- calculator card -----------------------------------------------------------
@@ -297,13 +303,16 @@
 
     // ---- result card ---------------------------------------------------------------
     const valueEl = el('div', { class: 'value sci-value' });
+    const bigLabelEl = el('div', { class: 'sci-biglabel', hidden: '' });
+    const subEl = el('p', { class: 'hint sci-sub mono', hidden: '' });
     const badgeEl = el('span', { class: 'sci-badge', hidden: '' });
     const msgEl = el('p', { class: 'hint sci-msg', role: 'status', 'aria-live': 'polite' });
     const noteEl = el('p', { class: 'sci-note' });
     const refEl = el('p', { class: 'hint sci-ref mono' });
     const statsEl = el('p', { class: 'sci-stats' });
     const resultBody = el('div', { class: 'sci-result-body' },
-      el('div', { class: 'sci-top' }, valueEl, badgeEl), noteEl, refEl, statsEl);
+      el('div', { class: 'sci-top' }, el('div', { class: 'sci-bigbox' }, bigLabelEl, valueEl), badgeEl),
+      subEl, noteEl, refEl, statsEl);
     const resultCard = el('div', { class: 'card sci-card' },
       el('h2', { class: 'sci-h', text: 'Result' }), msgEl, resultBody);
 
@@ -481,13 +490,20 @@
     function renderResult() {
       msgEl.textContent = '';
       resultBody.hidden = false;
-      valueEl.textContent = C.format(result.value, 10);
+      const rv = resultView(result);
+      valueEl.textContent = rv.big;
+      bigLabelEl.textContent = rv.bigLabel;
+      bigLabelEl.hidden = !rv.bigLabel;
+      subEl.textContent = rv.sub;
+      subEl.hidden = !rv.sub;
       const badge = badgeFor(result.status);
       badgeEl.hidden = !badge.text;
       badgeEl.textContent = badge.text;
       badgeEl.className = 'sci-badge tone-' + badge.tone;
       noteEl.textContent = result.note;
       noteEl.hidden = !result.note;
+      // Overflow and mismatch already lead with the standard value; repeat it only where the EML value leads.
+      refEl.hidden = !(result.status === 'ok' || result.status === 'limit');
       refEl.textContent = 'Standard math: ' + C.format(result.ref, 10);
       statsEl.textContent = '';
       for (const [label, value] of [
@@ -530,7 +546,7 @@
       if (selKey) {
         setView('tree'); // only the tree can ring positions
         if (expandCard.scrollIntoView) {
-          expandCard.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+          expandCard.scrollIntoView({ block: 'nearest', behavior: EML.dom.reduceMotion() ? 'auto' : 'smooth' });
         }
       }
       drawExpanded(false);
@@ -645,7 +661,7 @@
     playBtn.addEventListener('click', () => {
       if (!resolver) return;
       if (playing) { stopPlay(); drawExpanded(false); return; }
-      if (reduceMotion) {
+      if (EML.dom.reduceMotion()) {
         // No animation: go straight to the end; the step buttons still work one at a time.
         while (!resolver.done && resolver.step().length) { /* resolve everything */ }
         drawExpanded(false);
@@ -711,10 +727,14 @@
       input.value = exampleFor(recipeSel.value);
       evaluate();
       if (calcCard.scrollIntoView) {
-        calcCard.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+        calcCard.scrollIntoView({ block: 'nearest', behavior: EML.dom.reduceMotion() ? 'auto' : 'smooth' });
       }
     });
 
+    // Leaving this mode stops playback (the resolve position is kept).
+    section.addEventListener('eml:hide', () => {
+      if (playing) { stopPlay(); drawExpanded(false); }
+    });
     section.addEventListener('eml:show', () => {
       if (tv && !treeBox.hidden && vroot) tv.fit();
       if (pv) pv.fit();
@@ -725,6 +745,6 @@
   }
 
   EML.modeSci = {
-    init, breakdown, skeleton, positionsFor, badgeFor, exampleFor, sampleK, numberK, SPEEDS, FUNC_KEYS,
+    init, resultView, breakdown, skeleton, positionsFor, badgeFor, exampleFor, sampleK, numberK, SPEEDS, FUNC_KEYS,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

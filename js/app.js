@@ -27,7 +27,12 @@
   // measure a visible container. Every later show fires "eml:show" on the section.
   function setMode(mode) {
     if (!sections[mode]) mode = 'two';
+    const previous = current;
     current = mode;
+    // Tell the mode being left, so it can stop any playback (only if it was visible).
+    if (previous && previous !== mode && sections[previous] && !sections[previous].hidden) {
+      sections[previous].dispatchEvent(new CustomEvent('eml:hide', { bubbles: false }));
+    }
     for (const key of Object.keys(sections)) {
       sections[key].hidden = key !== mode;
     }

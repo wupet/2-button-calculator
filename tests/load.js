@@ -5,10 +5,10 @@ const vm = require('node:vm');
 // Must match the script order in index.html (Global Constraints).
 const ORDER = [
   'complex', 'eml-core', 'recipes', 'parser', 'compiler', 'view-model',
-  'resolve', 'rpn', 'view-tree', 'view-text', 'explainer', 'mode-two',
+  'resolve', 'rpn', 'dom', 'view-tree', 'view-text', 'explainer', 'mode-two',
   'mode-sci', 'app',
 ];
-const UI = new Set(['view-tree', 'view-text', 'explainer', 'mode-two', 'mode-sci', 'app']);
+const UI = new Set(['dom', 'view-tree', 'view-text', 'explainer', 'mode-two', 'mode-sci', 'app']);
 
 const done = { core: false, ui: false };
 

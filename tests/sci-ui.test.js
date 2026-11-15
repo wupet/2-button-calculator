@@ -150,3 +150,49 @@ test('limit results resolve with the nudged literals and end at the tidy value',
   const zeroLeaf = [...resolver.values.entries()].find(([k]) => k === '/0');
   assert.ok(zeroLeaf && zeroLeaf[1].re > 0 && zeroLeaf[1].re < 1e-9);
 });
+
+test('resultView: ok and limit keep the EML value big, with no label or sub line', () => {
+  const ok = modeSci.resultView(EML.run('ln(2)'));
+  assert.deepEqual(ok, { big: '0.6931471806', bigLabel: '', sub: '' });
+  const lim = modeSci.resultView(EML.run('sin(0)'));
+  assert.deepEqual(lim, { big: '0', bigLabel: '', sub: '' });
+  assert.equal(modeSci.resultView(EML.run('ln(-2)')).big, '0.6931471806 + 3.141592654i');
+});
+
+test('resultView: overflow leads with standard math and shows what the tree gave', () => {
+  const r = EML.run('-1000');
+  assert.equal(r.status, 'overflow');
+  const v = modeSci.resultView(r);
+  assert.equal(v.big, '\u22121000');
+  assert.equal(v.bigLabel, 'standard math');
+  assert.equal(v.sub, 'EML tree gave: ' + EML.C.format(r.value, 10));
+  assert.equal(v.sub, 'EML tree gave: \u2212\u221e');
+});
+
+test('resultView: mismatch leads with standard math too (synthetic result)', () => {
+  const C = EML.C;
+  const r = { status: 'mismatch', value: C.cx(1, 2), ref: C.cx(3, 0) };
+  assert.deepEqual(modeSci.resultView(r), { big: '3', bigLabel: 'standard math', sub: 'EML tree gave: 1 + 2i' });
+});
+
+test('resultView: undefined shows its value plainly; error shows nothing', () => {
+  const u = EML.run('1/0');
+  assert.equal(u.status, 'undefined');
+  assert.deepEqual(modeSci.resultView(u), { big: 'undefined', bigLabel: '', sub: '' });
+  assert.deepEqual(modeSci.resultView(EML.run('sin(')), { big: '', bigLabel: '', sub: '' });
+});
+
+test('EML.dom exposes el, btn and a live reduceMotion', () => {
+  assert.equal(typeof EML.dom.el, 'function');
+  assert.equal(typeof EML.dom.btn, 'function');
+  assert.equal(EML.dom.reduceMotion(), false); // no matchMedia in Node
+  const saved = globalThis.matchMedia;
+  try {
+    globalThis.matchMedia = () => ({ matches: true });
+    assert.equal(EML.dom.reduceMotion(), true);
+    globalThis.matchMedia = () => ({ matches: false });
+    assert.equal(EML.dom.reduceMotion(), false);
+  } finally {
+    if (saved === undefined) delete globalThis.matchMedia; else globalThis.matchMedia = saved;
+  }
+});

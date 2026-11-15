@@ -27,19 +27,9 @@
     const doc = root.document;
     if (!doc) return;
 
-    const el = (tag, props = {}, ...kids) => {
-      const node = doc.createElement(tag);
-      for (const k of Object.keys(props)) {
-        if (k === 'class') node.className = props[k];
-        else if (k === 'text') node.textContent = props[k];
-        else node.setAttribute(k, props[k]);
-      }
-      for (const kid of kids) node.append(kid);
-      return node;
-    };
+    const { el } = EML.dom;
 
     const machine = new EML.RpnMachine();
-    const reduceMotion = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     // ---- DOM -------------------------------------------------------------------
     const tapeEl = el('div', { class: 'm2-tape mono', role: 'log', 'aria-label': 'Key presses so far' });
@@ -215,7 +205,7 @@
       for (let i = 0; i < n && play.pos < play.tape.length; i++) pressChar(play.tape[play.pos++]);
       if (play.pos >= play.tape.length) { finishPlay(); return; }
       // Reduced motion: keep the readout live but draw the tree only when done.
-      render({ tree: !reduceMotion });
+      render({ tree: !EML.dom.reduceMotion() });
       updatePlayUI();
       play.timer = root.setTimeout(tick, interval);
     }
@@ -301,6 +291,15 @@
     });
 
     section.addEventListener('eml:show', () => { if (tv && !treeBox.hidden) tv.fit(); });
+    // Leaving this mode pauses a running preset (it can be resumed on return).
+    section.addEventListener('eml:hide', () => {
+      if (play && play.timer) {
+        root.clearTimeout(play.timer);
+        play.timer = null;
+        updatePlayUI();
+        render();
+      }
+    });
 
     render();
     updatePlayUI();

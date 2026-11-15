@@ -510,7 +510,9 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .tone-warn { color: var(--amber); }
 .tone-bad { color: var(--err); }
 .tone-muted { color: var(--muted); }
-.sci-ref { overflow-wrap: anywhere; }
+.sci-ref, .sci-sub { overflow-wrap: anywhere; }
+.sci-bigbox { min-width: 0; }
+.sci-biglabel { font-size: 0.8125rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .sci-stats { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; font-size: 0.9375rem; color: var(--muted); }
 .sci-stats strong { color: var(--ink); font-family: var(--font-mono); }
 .sci-msg:empty { display: none; }
