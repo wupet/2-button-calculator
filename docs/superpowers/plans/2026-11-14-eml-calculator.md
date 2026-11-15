@@ -6,7 +6,7 @@
 
 **Architecture:** Pure-logic core (complex math → hash-consed EML DAG + recipe call tree → parser/compiler → view model + resolver) is UI-free and tested in Node. Thin UI modules render it (SVG tree, text view, two modes, explainer). All files are classic scripts attaching to one global `EML` namespace so they load identically from `file://` and in Node tests.
 
-**Tech Stack:** Vanilla HTML/CSS/JS (ES2020), no build step, no dependencies, no CDNs. Tests: Node 22 built-in runner (`node --test tests/`).
+**Tech Stack:** Vanilla HTML/CSS/JS (ES2020), no build step, no dependencies, no CDNs. Tests: Node 22 built-in runner (`node --test`).
 
 **Spec:** `docs/superpowers/specs/2026-11-14-eml-calculator-design.md` (read it — it holds the UI behaviour, recipe table and the reasons behind the numeric policies).
 
@@ -60,9 +60,9 @@
   - `C.format(cx(2, -0)) === "2"`; `C.format(cx(0, 2)) === "2i"`; `C.format(cx(-1.5, -2)) === "−1.5 − 2i"`
   - `C.ref.ln(cx(-2, -0))` ≈ `0.6931471805599453 + 3.141592653589793i` (normalises −0)
   - `C.ref.sqrt(cx(-4))` ≈ `2i`; `C.ref.asin(cx(0.5)).re` ≈ `Math.asin(0.5)`; `C.ref.atan(cx(1)).re` ≈ `Math.PI/4`
-- [ ] **Step 2:** Run `node --test tests/` → FAIL (`EML.C` undefined).
+- [ ] **Step 2:** Run `node --test` → FAIL (`EML.C` undefined).
 - [ ] **Step 3:** Implement `js/complex.js` and `tests/load.js` per Interfaces.
-- [ ] **Step 4:** Run `node --test tests/` → all PASS.
+- [ ] **Step 4:** Run `node --test` → all PASS.
 - [ ] **Step 5:** Commit: `git add js/complex.js tests/ && git commit -m "feat: complex arithmetic with EML zero-sign policy"`
 
 ---
@@ -94,9 +94,9 @@
   - overrides: `lit = dag.literal(one, 1)`; evaluate `dag.eml(lit, one)` with `overrides = new Map([[lit.id, cx(2)]])` → ≈ e²
   - deep chain: `prev = one; 3000× prev = dag.eml(one, prev)` → `dag.evaluate(prev)` does not throw (value may be non-finite) and `dag.height(prev) === 3000`
   - `calls.eml(calls.one(), calls.one()).label === 'eml'`
-- [ ] **Step 2:** `node --test tests/` → FAIL.
+- [ ] **Step 2:** `node --test` → FAIL.
 - [ ] **Step 3:** Implement `js/eml-core.js`.
-- [ ] **Step 4:** `node --test tests/` → PASS.
+- [ ] **Step 4:** `node --test` → PASS.
 - [ ] **Step 5:** Commit `feat: hash-consed EML DAG and recipe call recorder`.
 
 ---
@@ -127,9 +127,9 @@
   - Paper Table 4 K (via `dag.K` of the call with variables x,y as leaves): `exp 3, e 3, ln 7, zero 7, sub 11, add 27, mul 41, minusOne 17, two 27` — store as `paperK` and assert. Print a K table for all recipes with `console.log` (informational; i and π are expected to differ from paper's 131/193).
   - `R.int(1000)` and `R.int(1000000)` evaluate to 1000 / 1e6 (proves doubling via mul, no overflow); `R.rational(-3, 4)` ≈ −0.75.
   - Overflow flag: `R.sub(R.one(), int800)` evaluates with `flags.overflow === true` where `int800 = R.int(800)`.
-- [ ] **Step 2:** `node --test tests/` → FAIL.
+- [ ] **Step 2:** `node --test` → FAIL.
 - [ ] **Step 3:** Implement `js/recipes.js`. If any accuracy test fails, fix the recipe (alternate identity), never loosen the test; record the change in the spec's recipe table.
-- [ ] **Step 4:** `node --test tests/` → PASS (this is the correctness gate — no UI work before it is green).
+- [ ] **Step 4:** `node --test` → PASS (this is the correctness gate — no UI work before it is green).
 - [ ] **Step 5:** Commit `feat: EML recipe table for all Table-1 primitives, verified on pure trees`.
 
 ---
@@ -153,9 +153,9 @@
   - Unicode: `2×3`, `6÷2`, `5−1`, `2π`, `√4` parse like ASCII
   - Errors are `EML.ParseError` (not TypeError): `""`, `"sin("`, `"2++"`, `"foo(2)"`, `"sin(1,2)"`, `"2)"`, `"$"`
   - `num.text` preserved: `0.50` → text `"0.50"`, value 0.5
-- [ ] **Step 2:** `node --test tests/` → FAIL.
+- [ ] **Step 2:** `node --test` → FAIL.
 - [ ] **Step 3:** Implement `js/parser.js` (hand-written tokenizer + precedence-climbing parser).
-- [ ] **Step 4:** `node --test tests/` → PASS.
+- [ ] **Step 4:** `node --test` → PASS.
 - [ ] **Step 5:** Commit `feat: expression parser with unicode and implicit multiplication`.
 
 ---
@@ -190,9 +190,9 @@
   - `error`: `"sin("`, `"1234567.8"` (literal cap)
   - perf: `EML.run('sin(cos(tan(2)))+3')` returns status `'ok'` in < 2000 ms
   - `numberToRational('2.50')` → `{p:5, q:2}`
-- [ ] **Step 2:** `node --test tests/` → FAIL.
+- [ ] **Step 2:** `node --test` → FAIL.
 - [ ] **Step 3:** Implement `js/compiler.js`.
-- [ ] **Step 4:** `node --test tests/` → PASS. If a case lands in the wrong status, investigate the recipe/limit logic (systematic-debugging), don't edit the expectation.
+- [ ] **Step 4:** `node --test` → PASS. If a case lands in the wrong status, investigate the recipe/limit logic (systematic-debugging), don't edit the expectation.
 - [ ] **Step 5:** Commit `feat: compiler with reference check, limits and overflow status`.
 
 ---
@@ -220,9 +220,9 @@
   - `unfoldAll` on `exp(1)` → not tooBig; every VNode kind ∈ {`one`, `eml`} (the literal `1` unfolds to the leaf); count 3.
   - Resolver on `sin(2)+3` folded: stepping until `done` makes `values.get('')` ≈ `Math.sin(2)+3`; `totalSteps === 3`; `back()` then `step()` returns same frontier paths; `reset()` → `stepIndex === 0`.
   - Resolver on fully unfolded `exp(1)`: final value ≈ e.
-- [ ] **Step 2:** `node --test tests/` → FAIL.
+- [ ] **Step 2:** `node --test` → FAIL.
 - [ ] **Step 3:** Implement `js/view-model.js`, `js/resolve.js`.
-- [ ] **Step 4:** `node --test tests/` → PASS.
+- [ ] **Step 4:** `node --test` → PASS.
 - [ ] **Step 5:** Commit `feat: foldable view model and step resolver`.
 
 ---
@@ -238,9 +238,9 @@
 - Produces `EML.recognize(value: complex) → string | null` — matches (rel 1e-9) against: integers −10…10, `1/2`, `−1/2`, `e`, `π`, `i`, `−i`, `ln 2`, `√2`, `e^e`; returns e.g. `"e"`, `"π"`, `"2"`, `"1/2"`.
 
 - [ ] **Step 1: Write failing tests:** `1 1 E` → tape `"11E"`, top value ≈ e, `recognize` → `"e"`; `pressEml()` on empty returns the error string and leaves stack unchanged; `undo()` after `11E` → stack has two 1s and tape `"11"`; replaying `presetTape(pi call)` keypress-by-keypress through the machine yields top ≈ π and `recognize` → `"π"`; same for `zero` → `"0"`, `i` → `"i"`.
-- [ ] **Step 2:** `node --test tests/` → FAIL.
+- [ ] **Step 2:** `node --test` → FAIL.
 - [ ] **Step 3:** Implement `js/rpn.js`.
-- [ ] **Step 4:** `node --test tests/` → PASS.
+- [ ] **Step 4:** `node --test` → PASS.
 - [ ] **Step 5:** Commit `feat: two-button RPN machine, presets and recognizer`.
 
 ---
@@ -259,7 +259,7 @@
 
 - [ ] **Step 1:** Create the files with the structure above (empty mode sections are fine).
 - [ ] **Step 2:** Verify in Chrome (claude-in-chrome) by opening `file:///C:/Users/wupet/OneDrive/Desktop/code/The%20EVIL%202%20func%20calc/index.html`: no console errors; mode switch toggles sections; explainer opens, slider updates both values and they match; large-type toggles; reload remembers mode.
-- [ ] **Step 3:** `node --test tests/` still PASS.
+- [ ] **Step 3:** `node --test` still PASS.
 - [ ] **Step 4:** Commit `feat: page shell, mode switch and EML explainer`.
 
 ---
@@ -276,7 +276,7 @@
 
 - [ ] **Step 1:** Implement the three files.
 - [ ] **Step 2:** Verify in Chrome: press `1 1 EML` → value 2.718281828…, badge "= e!", tree shows `E` with two `1` leaves; EML on empty stack shows hint, no console error; preset π plays, Skip jumps to end, value ≈ 3.14159 and badge "= π!"; pressing `1` mid-playback stops it; screenshot at 375px width shows no horizontal scroll.
-- [ ] **Step 3:** `node --test tests/` still PASS.
+- [ ] **Step 3:** `node --test` still PASS.
 - [ ] **Step 4:** Commit `feat: SVG tree, text view and two-button calculator UI`.
 
 ---
@@ -298,7 +298,7 @@
 
 - [ ] **Step 1:** Implement `js/mode-sci.js`.
 - [ ] **Step 2:** Verify in Chrome (each with screenshot): `ln(2)` ✓; `sin(2)+3` ✓ and stepping reaches the value in both Tree and Text; unfold `sin` shows the "too many nodes" message with count; unfold `ln` blob shows raw eml nodes; `-1000` overflow badge with standard value in note; `sin(0)` limit badge, value 0; `ln(-2)` shows `0.6931471806 + 3.141592654i`; `sqrt(-4)` shows `2i`; `""` and `sin(` show messages, no console errors; dropdown entry for `π` shows formula, deps and tree; "Try it" works.
-- [ ] **Step 3:** `node --test tests/` still PASS.
+- [ ] **Step 3:** `node --test` still PASS.
 - [ ] **Step 4:** Commit `feat: scientific mode with breakdown, recipe dropdown and step resolve`.
 
 ---
@@ -311,5 +311,5 @@
 
 - [ ] **Step 1:** Check in Chrome at 375×800, 1280×800 and large-type mode in light and dark (`prefers-color-scheme` emulation via devtools or OS): no horizontal scroll, readable from projector distance, buttons ≥ 44px.
 - [ ] **Step 2:** Run the full Verification list from the spec end-to-end; fix anything off.
-- [ ] **Step 3:** `node --test tests/` → all PASS; paste summary line.
+- [ ] **Step 3:** `node --test` → all PASS; paste summary line.
 - [ ] **Step 4:** Commit `chore: polish, README`.

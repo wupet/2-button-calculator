@@ -41,7 +41,7 @@ js/mode-two.js        two-button calculator UI
 js/mode-sci.js        scientific calculator UI, breakdown panel, "how it's built" dropdown
 js/explainer.js       "What is EML?" modal
 js/app.js             mode switch, wiring
-tests/*.test.js       Node built-in runner (no deps): `node --test tests/`
+tests/*.test.js       Node built-in runner (no deps): `node --test`
 ```
 
 ## Numeric core (the correctness gate — build and pass this before any UI)
