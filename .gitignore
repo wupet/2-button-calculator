@@ -2,3 +2,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# Paper PDF (link to arXiv instead of redistributing)
+2603.21852v2.pdf
