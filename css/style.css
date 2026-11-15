@@ -475,12 +475,13 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .sci { align-items: start; }
 .sci-col { display: grid; gap: 1rem; min-width: 0; align-content: start; }
 .sci [hidden] { display: none !important; }
-.sci-card { display: grid; gap: 0.75rem; align-content: start; }
+.sci-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; align-content: start; }
 .sci-h { font-size: 1.125rem; }
 .sci-label { display: block; }
 .sci-field { display: grid; gap: 0.125rem; }
 
 .sci-inputrow { display: flex; gap: 0.5rem; }
+.sci-inputrow .btn { flex: 0 0 auto; white-space: nowrap; }
 .sci-input {
   flex: 1 1 auto;
   min-width: 0;

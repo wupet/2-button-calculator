@@ -57,9 +57,7 @@ tests/*.test.js       Node built-in runner (no deps): `node --test`
   √−4 = **+**2i). The eml-built ln mirrors the branch of the input's signed zero imaginary part (paper §4.1). Plan:
   1. Try **"snap to −0"**: snapped/zero imaginary parts become −0 (inputs also enter as `re − 0i`). Expected: eml-ln
      of a negative real = ln|x| + iπ (standard). Matching recipes: `i = exp(ln(−1) ÷ 2)`, `π = −i × ln(−1)`.
-  2. If (1) fails the harness, use **"snap to +0"** (eml-ln(−1) = −iπ, verified by reviewer) with the repo's recipes
-     `i = −exp(ln(−1) ÷ 2)`, `π = i × ln(−1)`, and **correct the final sign**, as the paper's compiler does: for the
-     ln/√/pow-of-negative cases, conjugate where the harness shows the result is the conjugate of the reference.
+  2. ~~"snap to +0" fallback~~ — **not used** (variant (1) shipped).
   **Decided 2026-11-14 by prototype: variant (1) "snap to −0" works** (ln(−1)=+iπ, ln(−2), √−4=+2i, i=+i,
   π=+3.14159, sin/cos match Math). Variant (2) is not used. Required to pass: `ln(−1)=iπ`, `ln(−2)`, `ln(−0.5)`, `√−4 = 2i`,
   `i ≈ +i`, `π ≈ +3.14159…`, and all real-domain checks. Fix recipes, never tests.
@@ -105,8 +103,8 @@ Built in this order (each uses only earlier entries):
 | 12 | `aᵇ` | `exp(b × ln a)` |
 | 13 | integers n | `0`, `1` as above; `−1 = −(1)`; `2 = 1+1`; n>2 by binary method in **Horner form (high bit to low; changed 2026-11-14 in Task 3)**: `acc = 2` (the `two` constant, so int(2) is `two` itself), `+ 1` if the second bit is set; for each remaining bit of n from the top: `acc = 2 × acc` (**multiply, not `acc+acc`**), and if the bit is set `acc = acc + 1` (**small operand on the right**). Reason: `a + b = a − (−b)` computes `exp(b)`, so any large right-hand operand overflows past ~709; the earlier low-to-high form (`acc = acc + term`, `term = 2 × term`) overflows for e.g. 1e6 (needs `exp(2^14)`), and `add(term, term)` would cap integers near 1419. `add(large, 1)` and `mul(2, large)` only take logs of large values, so integers up to the 1e6 literal cap stay finite; negatives `−(n)` (still overflow for n > ~709, as the harness expects: `-1000` is flagged) |
 | 14 | rationals p/q | `p × (1/q)`, negated if p<0 (repo `eml_rational`) |
-| 15 | `i` | per branch policy: `exp(ln(−1) ÷ 2)` (−0 variant) or `−exp(ln(−1) ÷ 2)` (+0 variant, repo) |
-| 16 | `π` | per branch policy: `−i × ln(−1)` (−0 variant) or `i × ln(−1)` (+0 variant, repo) |
+| 15 | `i` | per branch policy: `exp(ln(−1) ÷ 2)` (snap-to-−0, shipped) |
+| 16 | `π` | per branch policy: `−i × ln(−1)` (snap-to-−0, shipped) |
 | 17 | `half(z)` | `z ÷ 2` |
 | 18 | `sqr(z)` | `z × z` |
 | 19 | `√z` | `z ^ (1/2)` |
@@ -138,7 +136,7 @@ full recursive substitution. Shared constants (i, π, 2, 1/2) are built once and
 - Branch checks: eml-ln(−1), eml-ln(−2), eml-ln(−0.5) give a consistent documented value; `i` ≈ +i; `π` ≈ 3.14159…+0i.
 - Prints K for each primitive; asserts paper Table 4 values where our route equals theirs:
   `exp = 3`, `e = 3`, `ln = 7`, `0 = 7`, `x − y = 11` (direct-search column), `x + y = 27`, `x × y = 41`,
-  `−1 = 17`, `2 = 27`; for the +0 (repo) variant also `i = 131`, `π = 193`. (Hand-derived by the reviewer —
+  `−1 = 17`, `2 = 27`. (Hand-derived by the reviewer —
   if a value differs, investigate before changing.)
 - Overflow: `sub(1, 800)`, `800+800`, `-1000` must be flagged (note `500+500` does NOT overflow — it's 1000).
 - Zero points: `0*5`, `sqrt(0)`, `sin(0)`, `tanh(0)` → pure tree gives ∞/NaN; limit evaluation (below) gives 0.
@@ -156,9 +154,14 @@ full recursive substitution. Shared constants (i, π, 2, 1/2) are built once and
   approach it." If the nudge still fails, show the failure badge. Resolve stepping uses the nudged literals in
   that case (shown in the note).
 - **Every result shows two values:** the EML-tree value and a direct reference value (complex reference library
-  on the same AST). Badge: `✓ matches standard math` / `⚠ overflow: this EML route computes e^(800), too big for a 64-bit
-  float` / `≠ branch mismatch` with a one-line why. Never present a wrong number as correct in a live demo.
-- Imag parts below display tolerance shown as real; genuine complex results displayed `a + bi`.
+  on the same AST). `ok`/`limit`: `✓ matches standard math`, big value = reference. `overflow` or `mismatch` (EML route
+  fails, e.g. it computes e^(800)): the standard-math value is the big number, labelled "standard math", with "EML tree
+  gave: …" beneath. True poles → `undefined` (big "—"). Float overflow/underflow anywhere in the reference → `overflow`
+  with "too large for 64-bit floats" / "out of 64-bit float range" and no fake number. Never present a wrong number as
+  correct in a live demo.
+- Displayed numbers show only verified digits: the reference is rounded to the digits on which the EML tree and
+  standard math agree (see `EML.C.formatVerified`), replacing any fixed "magnitude < 1e-6 → 0" cut-off; genuine
+  complex results are displayed `a + bi`.
 
 ## UI design
 
