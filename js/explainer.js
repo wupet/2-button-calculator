@@ -138,9 +138,15 @@
     slider.addEventListener('input', update);
     update();
 
+    // A backdrop click is one where both the press and the click land on the
+    // dialog element itself. A press inside (e.g. dragging the slider) that is
+    // released over the backdrop must not close it.
+    let pressOnBackdrop = false;
+    dlg.addEventListener('pointerdown', (ev) => { pressOnBackdrop = ev.target === dlg; });
     dlg.addEventListener('click', (ev) => {
-      // A click on the dialog element itself (not its children) is a backdrop click.
-      if (ev.target === dlg || ev.target.closest('[data-close]')) dlg.close();
+      const backdrop = ev.target === dlg && pressOnBackdrop;
+      pressOnBackdrop = false;
+      if (backdrop || ev.target.closest('[data-close]')) dlg.close();
     });
   }
 

@@ -159,14 +159,17 @@ cite { font-style: italic; }
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 2px;
-  gap: 2px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
 }
 .segmented button {
   border: 0;
+  border-radius: 0;
   background: transparent;
-  min-height: calc(var(--touch) - 7px);
+  min-height: var(--touch);
 }
+.segmented button + button { border-left: 1.5px solid var(--line); }
 .segmented button[aria-pressed="true"] {
   background: var(--trace);
   color: var(--on-trace);
