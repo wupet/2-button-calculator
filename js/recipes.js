@@ -285,8 +285,11 @@
       // add(term, term) would cap integers near 1419). add(large, 1) and
       // mul(2, large) only ever take logs of large values, so they stay finite.
       const bits = n.toString(2);
-      let acc = R.one();
-      for (let k = 1; k < bits.length; k++) {
+      // The top two bits seed the accumulator from the `two` constant (spec: 2 = 1+1),
+      // so int(2) is `two` itself and no integer pays for a mul(two, one) detour.
+      let acc = R.two();
+      if (bits[1] === '1') acc = R.add(acc, R.one());
+      for (let k = 2; k < bits.length; k++) {
         acc = R.mul(R.two(), acc);
         if (bits[k] === '1') acc = R.add(acc, R.one());
       }

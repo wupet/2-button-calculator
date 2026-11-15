@@ -174,3 +174,14 @@ test('overflow flag: 1 - 800 routes through exp(800)', () => {
   assert.equal(flags.overflow, true);
   assert.ok(!C.isFinite(value) || value.re !== 1 - 800);
 });
+
+test('int(2) is the two constant itself, so small integers stay lean', () => {
+  const n2 = R.int(2);
+  assert.equal(n2.prim, 'int');
+  assert.equal(n2.label, '2');
+  assert.ok(n2.body === R.two(), "int(2) body is the two CallNode");
+  assert.equal(dag.K(n2.root), dag.K(R.two().root));
+  assert.equal(dag.K(n2.root), 27);
+  // int(3) = two + 1 (no mul(two, one) detour)
+  assert.equal(dag.K(R.int(3).root), dag.K(R.add(R.two(), R.one()).root));
+});
