@@ -386,6 +386,7 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
   border-left: 0;
   border-radius: var(--radius);
   min-width: 0;
+  container-type: inline-size; /* the figures size to the well, not the viewport */
 }
 .m2-top::before, .sci-top::before {
   content: "";
@@ -400,6 +401,8 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .m2-value, .sci-value {
   max-width: 100%;
   font-size: clamp(2rem, 9vw, 3.25rem);
+  /* ~12 mono figures per line before it shrinks; breaks fall at spaces first. */
+  font-size: clamp(1.5rem, 12cqi, 3.25rem);
   font-weight: 650;
   line-height: 1.1;
   letter-spacing: -0.015em;
@@ -680,7 +683,7 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .sci-result-body { display: grid; gap: 0.75rem; }
 .sci-bigbox { min-width: 0; max-width: 100%; display: grid; gap: 0.125rem; }
 .sci-biglabel { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
-.sci-value.is-words { font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.2; letter-spacing: 0; }
+.sci-value.is-words { font-size: clamp(1.25rem, 8cqi, 2rem); line-height: 1.2; letter-spacing: 0; }
 .tone-ok { color: var(--ok); }
 .tone-limit { color: var(--trace); }
 .tone-warn { color: var(--amber); }

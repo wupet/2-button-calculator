@@ -55,7 +55,8 @@ Tested with Node.js 22; no packages to install:
   page then shows an overflow badge and leads with the standard-math answer,
   with the tree's own value in small print. When standard math also leaves the
   64-bit range (for example `e^1000` or `ln(exp(1000))`), the page says so and
-  shows no number. True singularities such as `1/0` or `ln(0)` are marked
+  shows no number; when the trouble is a value too small for a double (below
+  ~1e-308, e.g. `exp(-800)`), the badge reads "out of range" instead. True singularities such as `1/0` or `ln(0)` are marked
   undefined.
 - **Isolated points are shown as limits.** `eml` cannot reach a few points
   exactly (for example `sin(0)` or `0 * 5`). The page evaluates them by
