@@ -115,7 +115,7 @@
   - `i`: `R.exp(R.div(R.ln(R.minusOne()), R.two()))`; `pi`: `R.mul(R.neg(R.i()), R.ln(R.minusOne()))`.
   - `sqrt(z) = pow(z, R.rational(1,2))`; `arccos z = sub(div(pi, two), arcsin z)`; `sigmoid z = div(one, add(one, exp(neg z)))`; others exactly per spec table.
 - Produces on `EML.R`: a shortcut per id (`R.ln(a)`, `R.sub(a,b)`, `R.pi()`, …) = `R.call(id, …)`, plus:
-  - `R.int(n) → CallNode` (prim `'int'`, label `String(n)`, memoised by n): `0 → zero`, `1 → one`, `n<0 → neg(int(−n))`, else binary method from spec row 13 with `term = mul(two, term)`.
+  - `R.int(n) → CallNode` (memoised by n): `0 →` the `zero` CallNode itself, `1 →` `R.one()` itself; otherwise prim `'int'`, label `String(n)`: `n<0 → neg(int(−n))`, else binary method from spec row 13 with `term = mul(two, term)`.
   - `R.rational(p, q) → CallNode` (prim `'rat'`, label `` `${p}/${q}` ``): `q===1 → int(p)`; else `mul(int(|p|), inv(int(q)))`, negated if p<0.
 - Test points: unary real `[-2.5, -1, -0.5, 0.3, 0.5, 1.7, 3]` filtered by domain — `ln, sqrt, logb(z)`: > 0; `arcsin, arccos, artanh`: (−1, 1); `arcosh`: > 1; `inv, div(b)`: ≠ 0; binary ops use pairs from `[[2,3],[-1.5,0.5],[0.3,-2],[3,-2.5]]` (pow/logb/hypot restricted to positive base / valid domains). **Avoid 0 as an input** (zero points are Task 5's job).
 
@@ -177,7 +177,8 @@
   1. `ref` non-finite or NaN → `'undefined'`, `value = ref`, note `"Not defined here in standard math either."`
   2. `raw = evaluate(root)`. Finite and `approxEq(raw, ref, 1e-7)` → `'ok'`, `value = raw`.
   3. `flags.overflow || flags.underflow` → `'overflow'`, `value = raw`, note `"This EML route computes an e^(…) too big for a 64-bit float, so the tree can't finish. Standard math says ${format(ref)}."`
-  4. Limit: collect every `lit` node under root; side ± with overrides `v → v·(1±1e-9)` (or `±1e-9` when v = 0); evaluate both (fresh evaluators); if both finite, agree within 1e-6, and their average ≈ ref within 1e-6 → `'limit'`, `value = average`, `overrides` = the + side map, note `"EML can't reach this point exactly — this is the limit as you approach it."`
+  4. Limit: collect every `lit` node under root; side ± with overrides `v → v·(1±1e-12)` (or `±1e-14` when v = 0 — √δ must be ≪ 1e-6 for `sqrt(0)` to pass); evaluate both (fresh evaluators); if both finite, agree within 1e-6, and their average ≈ ref within 1e-6 → `'limit'`, `value = average` with any real/imag part of magnitude < 1e-6 set to 0, `overrides` = the + side map, note `"EML can't reach this point exactly — this is the limit as you approach it."`
+     (If a zero-point test lands in `'overflow'` because flags were set spuriously, run step 4 before step 3.)
   5. Otherwise `'mismatch'`, `value = raw`, note `"The EML tree and standard math disagree here (branch cut or precision). Standard math says ${format(ref)}."`
 
 - [ ] **Step 1: Write failing tests:**
