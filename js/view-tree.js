@@ -5,7 +5,7 @@
   // ---- Layout constants (SVG user units ~ CSS px at zoom 1) -----------------
   // All sizes are for the default 16px root; layout(vroot, scale) multiplies them
   // so the labels (0.8125rem in CSS) and their boxes grow together in large type.
-  const ROW = 64;       // vertical distance between depths
+  const ROW = 56;       // vertical distance between depths
   const GAP = 14;       // minimum horizontal gap between sibling subtrees
   const PAD = 24;       // margin around the whole drawing
   const NODE_H = 28;    // height of blob / chip / leaf boxes
@@ -211,7 +211,10 @@
       this.nodeLayer.textContent = '';
       const byPath = new Map(lay.nodes.map((n) => [n.path, n]));
 
+      // Schematic wiring: down from the parent, along a bus, down into each
+      // child; a junction dot marks where a bus branches.
       const edgeFrag = doc.createDocumentFragment();
+      const branched = new Set();
       for (const [a, b] of lay.edges) {
         const p = byPath.get(a);
         const q = byPath.get(b);
@@ -219,8 +222,17 @@
         const y2 = q.y - q.h / 2;
         const ym = (y1 + y2) / 2;
         const path = doc.createElementNS(SVG_NS, 'path');
-        path.setAttribute('d', `M${p.x} ${y1}C${p.x} ${ym} ${q.x} ${ym} ${q.x} ${y2}`);
+        path.setAttribute('d', `M${p.x} ${y1}V${ym}H${q.x}V${y2}`);
         edgeFrag.append(path);
+        if (q.x !== p.x && !branched.has(a)) {
+          branched.add(a);
+          const dot = doc.createElementNS(SVG_NS, 'circle');
+          dot.setAttribute('cx', p.x);
+          dot.setAttribute('cy', ym);
+          dot.setAttribute('r', 2.75 * lay.scale);
+          dot.setAttribute('class', 'tv-junction');
+          edgeFrag.append(dot);
+        }
       }
       this.edgeLayer.append(edgeFrag);
 
@@ -305,6 +317,9 @@
     _applyVB() {
       const { x, y, w, h } = this.vb;
       this.svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+      // Zoomed far out, full-width strokes would merge into a solid mass: thin them (CSS).
+      const s = this._size();
+      if (s.w >= 2) this.svg.classList.toggle('tv-far', s.w / w < 0.4);
     }
 
     _fitScale() {

@@ -189,7 +189,7 @@ full recursive substitution. Shared constants (i, π, 2, 1/2) are built once and
 - **"How it's built" dropdown**: lists all 35 primitives in bootstrapping order; selecting one shows its recipe,
   which earlier primitives it depends on (chain), K, a short plain-language note, a small expandable tree, and
   "Try it" (inserts into input).
-- **Expanded view** with toggle **Tree | Text**, sharing one fold state and one resolve state:
+- **Expanded view** (card heading “The pure-EML tree”) with toggle **Tree | Text**, sharing one fold state and one resolve state:
   - Starts *folded* at the expression's own structure (e.g. `+ ( sin(2), 3 )` as blobs). Click a blob to unfold
     it one level into its recipe; "unfold all to pure EML" allowed only if visible node count ≤ cap (~1500),
     otherwise message with the count ("sin alone is N nodes — unfold a smaller piece").

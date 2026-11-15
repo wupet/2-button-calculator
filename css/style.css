@@ -16,6 +16,13 @@
   --err: #b3261e;
   --focus: #a5470a;
   --shadow: 0 1px 0 rgba(15, 27, 39, 0.08), 0 8px 24px -12px rgba(15, 27, 39, 0.25);
+  --well: #f1f4f7;         /* recessed areas: readouts, trays, drawing wells */
+  --well-grid: rgba(10, 106, 135, 0.07);
+  --key: #ffffff;          /* digit key face */
+  --key-edge: #a9b5c1;     /* the lower edge that makes a key read as pressable */
+  --wire: #5d7184;         /* tree wiring */
+  --trace-soft: rgba(10, 106, 135, 0.1);
+  --amber-soft: rgba(165, 71, 10, 0.09);
 
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -39,6 +46,13 @@
     --err: #ff8a80;
     --focus: #f2a65a;
     --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+    --well: #0c151e;
+    --well-grid: rgba(79, 193, 224, 0.06);
+    --key: #1b2a38;
+    --key-edge: #070e14;
+    --wire: #6f8aa0;
+    --trace-soft: rgba(79, 193, 224, 0.13);
+    --amber-soft: rgba(242, 166, 90, 0.12);
   }
 }
 
@@ -199,9 +213,30 @@ main > section[hidden] { display: none; }
   background: var(--surface);
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: 0.875rem 1rem 1rem;
   min-width: 0;
   box-shadow: var(--shadow);
+}
+/* Card title: a title strip ruled off from the content, with an open
+   terminal (the schematic's connection point) in front. */
+.card > .m2-h:first-child, .card > .sci-h:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 -1rem;
+  padding: 0 1rem 0.75rem;
+  border-bottom: 1.5px solid var(--line);
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.card > .m2-h:first-child::before, .card > .sci-h:first-child::before {
+  content: "";
+  flex: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  border: 2px solid var(--trace);
+  border-radius: 50%;
 }
 .hint { color: var(--muted); font-size: 0.9375rem; }
 .error { color: var(--err); font-weight: 600; }
@@ -319,69 +354,158 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
   .btn, .segmented button { transition: background-color 0.12s, border-color 0.12s; }
 }
 
+/* ---------- shared calculator pieces ---------- */
+
+/* Small field labels: sentence case, quiet. */
+.m2-label, .sci-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Keys: a face plus a darker lower edge, so they read as pressable. */
+.keycap {
+  background: var(--key);
+  border-color: var(--line);
+  border-bottom: 3px solid var(--key-edge);
+}
+.keycap:active { transform: translateY(1px); border-bottom-width: 2px; }
+
+/* The readout: where a computed value lands. A recessed well fed by the cyan
+   trace on its left edge, with the value in large amber figures. Shared by the
+   two-button "top of stack" and the scientific result. */
+.m2-top, .sci-top {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem 1rem 1.25rem;
+  background: var(--well);
+  border: 1.5px solid var(--line);
+  border-left: 0;
+  border-radius: var(--radius);
+  min-width: 0;
+}
+.m2-top::before, .sci-top::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -1.5px;
+  bottom: -1.5px;
+  width: 4px;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--trace);
+}
+.m2-value, .sci-value {
+  max-width: 100%;
+  font-size: clamp(2rem, 9vw, 3.25rem);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+.m2-badge, .sci-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.125rem 0.75rem;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+/* Drawing wells for trees: fine grid paper inside the card. */
+.m2-tree, .sci-tree, .sci-pv {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background-color: var(--well);
+  background-image:
+    linear-gradient(var(--well-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--well-grid) 1px, transparent 1px);
+  background-size: 1rem 1rem;
+  background-position: -1px -1px;
+  overflow: hidden;
+}
+
 /* ---------- two-button mode ---------- */
 
 .m2 { align-items: start; }
-.m2-h { font-size: 1.125rem; margin-bottom: 0.75rem; }
-.m2-calc, .m2-treecard { display: grid; gap: 0.75rem; align-content: start; }
-.m2-label, .sci-label {
-  font-size: 0.8125rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
+.m2-calc, .m2-treecard { display: grid; gap: 0.875rem; align-content: start; }
+
+/* Display: tape and stack in one recessed well, like a calculator's screen. */
+.m2-readout {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.625rem 0.875rem 0.75rem;
+  background: var(--well);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  min-width: 0;
 }
-.m2-readout { display: grid; gap: 0.25rem; }
 .m2-tape {
-  min-height: 2.5rem;
-  max-height: 6rem;
+  min-height: 1.75rem;
+  max-height: 5.5rem;
   overflow-y: auto;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg);
-  border-left: 4px solid var(--trace);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px dashed var(--line);
   font-size: 1.125rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
-.m2-tape:empty::before { content: "nothing pressed yet"; color: var(--muted); letter-spacing: 0; font-size: 0.9375rem; }
+.m2-tape:empty::before { content: "Nothing pressed yet"; color: var(--muted); letter-spacing: 0; font-family: var(--font-ui); font-size: 0.9375rem; }
 .m2-stack {
   list-style: none;
   margin: 0;
-  padding: 0.25rem 0.75rem;
+  padding: 0;
   max-height: 11rem;
   overflow-y: auto;
-  background: var(--bg);
-  border-radius: var(--radius);
   display: grid;
   gap: 0.125rem;
 }
 .m2-stack li { display: flex; gap: 0.75rem; align-items: baseline; min-width: 0; }
-.m2-stack .value { overflow-wrap: anywhere; font-weight: 600; }
+.m2-stack .value { overflow-wrap: anywhere; font-weight: 600; font-size: 1.0625rem; min-width: 0; }
+/* The newest entry is the top of the stack: what EML takes next. */
+.m2-stack li:last-child .value { font-size: 1.375rem; }
 .m2-idx { color: var(--muted); font-family: var(--font-mono); font-size: 0.8125rem; min-width: 1.5rem; }
-.m2-msg { min-height: 2.9em; }
+.m2-empty { font-size: 0.9375rem; }
+.m2-msg { min-height: 3em; }
 
 .m2-keys { display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem; }
 .m2-key {
-  min-height: 4.5rem;
+  min-height: 5rem;
   font-family: var(--font-mono);
-  font-size: 1.75rem;
-  border-width: 2px;
+  font-size: 2rem;
+  border-width: 1.5px 1.5px 4px;
 }
-.m2-eml { background: var(--trace); border-color: var(--trace); color: var(--on-trace); letter-spacing: 0.08em; }
-.m2-eml:hover { border-color: var(--trace); filter: brightness(1.08); }
+.m2-key:active { border-bottom-width: 3px; }
+.m2-eml {
+  background: var(--trace);
+  border-color: var(--trace);
+  border-bottom-color: color-mix(in srgb, var(--trace) 55%, #000);
+  color: var(--on-trace);
+  letter-spacing: 0.1em;
+}
+.m2-eml:hover { border-color: var(--trace); border-bottom-color: color-mix(in srgb, var(--trace) 55%, #000); filter: brightness(1.08); }
 .m2-eml:active { background: var(--trace); filter: brightness(0.92); }
 .m2-util { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.m2-util .btn { flex: 0 1 7rem; }
 
 .m2-presets {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem 0.75rem;
-  padding-top: 0.75rem;
+  padding-top: 0.875rem;
   border-top: 1.5px solid var(--line);
 }
+.m2-sub { grid-column: 1 / -1; font-size: 1rem; font-weight: 650; }
 .m2-field { display: grid; gap: 0.125rem; min-width: 0; }
-.m2-field label { font-size: 0.875rem; font-weight: 600; color: var(--muted); }
+.m2-field label { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
 .m2-select, .sci-select {
   font: inherit;
   min-height: var(--touch);
@@ -395,20 +519,22 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .m2-playrow { grid-column: 1 / -1; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .m2-playrow .btn { flex: 1 1 8rem; }
 
-.m2-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
-.m2-value { font-size: clamp(1.25rem, 6vw, 2rem); font-weight: 650; overflow-wrap: anywhere; }
-.m2-badge {
-  padding: 0.25rem 0.75rem;
-  border: 1.5px solid var(--ok);
-  border-radius: 999px;
-  color: var(--ok);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 1.125rem;
-}
+.m2-badge { color: var(--ok); }
 .m2-badge[hidden], .m2-tree[hidden], .m2-fit[hidden] { display: none; }
-.m2-fit { justify-self: start; }
+.m2-fit { margin-left: auto; }
+.m2-tree { height: 20rem; max-height: 60vh; }
+.m2-treefoot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; min-height: var(--touch); }
 .m2-treemsg:empty { display: none; }
+/* Empty state: the tree's place, drawn as a dashed outline with directions. */
+.m2-tree[hidden] + .m2-treefoot {
+  min-height: 12rem;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--well);
+}
 
 /* ---------- tree view (SVG) ---------- */
 
@@ -420,29 +546,26 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 }
 .btn-fit:hover { background: var(--surface-2); }
 
-.m2-tree {
-  height: 20rem;
-  max-height: 60vh;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg);
-  overflow: hidden;
-}
 .tv-svg { display: block; width: 100%; height: 100%; touch-action: pan-x pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
 .tv-svg.panning { cursor: grabbing; }
-.tv-edges path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+/* Strokes keep their screen width at any zoom, so a large tree stays legible. */
+.tv-edges path { fill: none; stroke: var(--wire); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.tv-junction { fill: var(--wire); }
+.tv-far .tv-edges path { stroke-width: 0.6; }
+.tv-far .tv-shape, .tv-far .tv-eml .tv-shape, .tv-far .tv-chip .tv-shape { stroke-width: 0.75; }
+.tv-far .tv-junction { display: none; }
 .tv-hit { fill: transparent; stroke: none; }
 .tv-label { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 600; fill: var(--ink); pointer-events: none; }
-.tv-shape { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
-.tv-eml .tv-shape { stroke: var(--trace); stroke-width: 2.25; }
+.tv-shape { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.tv-eml .tv-shape { fill: color-mix(in srgb, var(--trace) 16%, var(--surface)); stroke: var(--trace); stroke-width: 2; }
 .tv-eml .tv-label { fill: var(--trace); font-weight: 700; }
-.tv-one .tv-shape, .tv-var .tv-shape { fill: var(--surface-2); }
-.tv-blob .tv-shape { fill: var(--surface-2); stroke: var(--trace); stroke-dasharray: 5 3; }
+.tv-blob .tv-shape { stroke: var(--trace); stroke-dasharray: 5 3; }
+.tv-blob .tv-label { fill: var(--trace); }
 .tv-blob[role="button"] { cursor: pointer; }
-.tv-blob[role="button"]:hover .tv-shape { stroke: var(--amber); }
-.tv-chip .tv-shape { stroke: var(--amber); stroke-width: 2; }
+.tv-blob[role="button"]:hover .tv-shape { stroke: var(--amber); fill: var(--amber-soft); }
+.tv-chip .tv-shape { fill: color-mix(in srgb, var(--amber) 14%, var(--surface)); stroke: var(--amber); stroke-width: 2; }
 .tv-chip .tv-label { fill: var(--amber); }
-.tv-ring { fill: none; stroke: var(--amber); stroke-width: 2; stroke-dasharray: 4 3; }
+.tv-ring { fill: none; stroke: var(--amber); stroke-width: 2; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
 .tv-node:focus-visible { outline: none; }
 .tv-node:focus-visible .tv-shape { stroke: var(--focus); stroke-width: 3; }
 
@@ -459,82 +582,141 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .txt-line:last-child { border-bottom: 0; }
 .txt-eq { color: var(--muted); }
 .txt-line mark {
-  background: color-mix(in srgb, var(--amber) 22%, transparent);
+  background: var(--amber-soft);
   color: var(--amber);
   font-weight: 700;
   border-radius: 3px;
   padding: 0 0.15em;
 }
 
-@media (max-width: 480px) {
-  .m2-keys { grid-template-columns: 1fr 1.6fr; }
-}
-
 /* ---------- scientific mode ---------- */
 
 .sci { align-items: start; }
-.sci-col { display: grid; gap: 1rem; min-width: 0; align-content: start; }
+/* Phones: the two columns dissolve into one list in reading order. */
+.sci-col { display: contents; }
+.sci-calc { order: 1; }
+.sci-result { order: 2; }
+.sci-break { order: 3; }
+.sci-expand { order: 4; }
+.sci-how { order: 5; }
 .sci [hidden] { display: none !important; }
-.sci-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; align-content: start; }
-.sci-h { font-size: 1.125rem; }
+.sci-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.875rem; align-content: start; }
 .sci-label { display: block; }
-.sci-field { display: grid; gap: 0.125rem; }
+.sci-field { display: grid; gap: 0.25rem; }
 
+/* Input */
+.sci-calc { container-type: inline-size; }
 .sci-inputrow { display: flex; gap: 0.5rem; }
 .sci-inputrow .btn { flex: 0 0 auto; white-space: nowrap; }
 .sci-input {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 3.25rem;
-  padding: 0.25rem 0.75rem;
-  font-size: 1.25rem;
+  min-height: 3.5rem;
+  padding: 0.25rem 0.875rem;
+  font-size: 1.375rem;
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--well);
   color: var(--ink);
 }
+.sci-input:focus { border-color: var(--trace); }
+.sci-input::placeholder { font-size: 1.0625rem; color: var(--muted); opacity: 1; }
+.sci-input:focus-visible { outline-offset: 1px; }
 .sci-eg { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.sci-chip { font-size: 0.9375rem; padding: 0.25rem 0.75rem; }
+.sci-chip { font-size: 0.9375rem; padding: 0.25rem 0.75rem; font-weight: 500; }
 
+/* Keypad: digits are the plain key faces; operators sit on the trace tint;
+   constants are values, so amber; ⌫ and C are quiet; = is the one solid key. */
 .sci-pad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
 .sci-pad .keycap {
   min-width: 0;
+  min-height: 3.25rem;
   padding: 0.25rem;
   font-family: var(--font-mono);
-  font-size: 1.25rem;
+  font-size: 1.375rem;
 }
-.sci-pad .op, .sci-pad .back, .sci-pad .clear { background: var(--surface-2); }
-.sci-pad .const { color: var(--trace); }
-.sci-pad .eval { background: var(--trace); border-color: var(--trace); color: var(--on-trace); }
-.sci-funcs { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)); gap: 0.5rem; }
-.sci-funcs .keycap { min-width: 0; padding: 0.25rem; font-family: var(--font-mono); font-size: 0.9375rem; }
+.sci-pad .op {
+  background: var(--trace-soft);
+  border-color: color-mix(in srgb, var(--trace) 35%, var(--line));
+  border-bottom-color: color-mix(in srgb, var(--trace) 55%, var(--key-edge));
+  color: var(--trace);
+}
+.sci-pad .const { color: var(--amber); }
+.sci-pad .back, .sci-pad .clear {
+  background: transparent;
+  border-bottom-width: 1.5px;
+  color: var(--muted);
+}
+.sci-pad .eval {
+  background: var(--trace);
+  border-color: var(--trace);
+  border-bottom-color: color-mix(in srgb, var(--trace) 55%, #000);
+  color: var(--on-trace);
+}
 
-.sci-result-body { display: grid; gap: 0.5rem; }
-.sci-top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
-.sci-value { font-size: clamp(1.5rem, 7vw, 2.5rem); font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
-.sci-badge {
-  padding: 0.25rem 0.75rem;
-  border: 1.5px solid currentColor;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 1rem;
+/* Functions: a recessed tray of smaller keys, one family per row when wide. */
+.sci-funcs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr));
+  gap: 0.375rem;
+  padding: 0.5rem;
+  background: var(--well);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
 }
+.sci-funcs .keycap {
+  min-width: 0;
+  padding: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-bottom-width: 2px;
+}
+@container (min-width: 28rem) {
+  .sci-funcs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* Result */
+.sci-result-body { display: grid; gap: 0.75rem; }
+.sci-bigbox { min-width: 0; max-width: 100%; display: grid; gap: 0.125rem; }
+.sci-biglabel { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
+.sci-value.is-words { font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.2; letter-spacing: 0; }
 .tone-ok { color: var(--ok); }
 .tone-limit { color: var(--trace); }
 .tone-warn { color: var(--amber); }
 .tone-bad { color: var(--err); }
 .tone-muted { color: var(--muted); }
 .sci-ref, .sci-sub { overflow-wrap: anywhere; }
-.sci-bigbox { min-width: 0; }
-.sci-biglabel { font-size: 0.8125rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.sci-stats { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; font-size: 0.9375rem; color: var(--muted); }
-.sci-stats strong { color: var(--ink); font-family: var(--font-mono); }
+.sci-sub { font-size: 0.9375rem; }
+.sci-note { max-width: 40rem; }
+/* Size figures as a drawing's title block: ruled cells, label over value. */
+.sci-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+}
+.sci-stat { display: grid; gap: 0.125rem; padding: 0.375rem 0.625rem; min-width: 0; }
+.sci-stat + .sci-stat { border-left: 1.5px solid var(--line); }
+.sci-stat-k { font-size: 0.8125rem; color: var(--muted); line-height: 1.3; }
+.sci-stat strong { font-family: var(--font-mono); font-size: 1rem; color: var(--ink); overflow-wrap: anywhere; }
+/* Empty result / parse error: the readout's place, with directions. */
+.sci-msg {
+  padding: 1rem;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--well);
+}
+.sci-msg.error { border: 1.5px solid var(--err); border-left-width: 4px; background: color-mix(in srgb, var(--err) 8%, var(--well)); }
 .sci-msg:empty { display: none; }
 
-.sci-pieces { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr)); }
+/* Breakdown: each piece as a part on the parts list, its symbol boxed. */
+.sci-pieces { display: grid; gap: 0.625rem; grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr)); }
 .sci-piece {
   display: grid;
-  gap: 0.25rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.75rem;
+  row-gap: 0.125rem;
   align-content: start;
   min-width: 0;
   min-height: var(--touch);
@@ -542,35 +724,42 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
   font: inherit;
   text-align: left;
   color: var(--ink);
-  background: var(--bg);
+  background: var(--surface);
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
   cursor: pointer;
   touch-action: manipulation;
 }
 .sci-piece:hover { border-color: var(--trace); }
-.sci-piece[aria-pressed="true"] { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
-.sci-piece > span { display: block; min-width: 0; overflow-wrap: anywhere; }
-.sci-piece-sym { font-size: 1.5rem; font-weight: 700; color: var(--trace); line-height: 1.2; }
-.sci-piece-name { font-weight: 600; }
+.sci-piece[aria-pressed="true"] { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); background: var(--amber-soft); }
+.sci-piece > span { display: block; min-width: 0; overflow-wrap: anywhere; grid-column: 2; }
+.sci-piece > .sci-piece-sym {
+  grid-column: 1;
+  grid-row: 1 / span 5;
+  align-self: start;
+  min-width: 2.75rem;
+  padding: 0.25rem 0.375rem;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--trace);
+  background: var(--trace-soft);
+  border: 1.5px solid color-mix(in srgb, var(--trace) 45%, var(--line));
+  border-radius: var(--radius);
+}
+.sci-piece-name { font-weight: 650; }
 .sci-piece-f { font-size: 0.875rem; }
-.sci-piece-meta { font-size: 0.875rem; color: var(--muted); }
+.sci-piece-meta { font-size: 0.8125rem; color: var(--muted); }
 .sci-piece-val { font-size: 0.9375rem; font-weight: 600; }
 
+/* Tree card */
 .sci-bar, .sci-ctl { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.sci-ctl .btn { min-width: var(--touch); }
 .sci-ctl .sci-select { width: auto; }
 .sci-steps { margin-left: auto; font-weight: 600; }
 .sci-xmsg:empty { display: none; }
 .sci-limit { font-size: 0.9375rem; color: var(--trace); border-left: 4px solid var(--trace); padding-left: 0.75rem; }
-.sci-tree, .sci-pv {
-  height: 26rem;
-  max-height: 65vh;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg);
-  overflow: hidden;
-}
+.sci-tree { height: 26rem; max-height: 65vh; }
 .sci-pv { height: 14rem; }
 .sci-text {
   height: 26rem;
@@ -579,16 +768,29 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
   padding: 0.5rem 0.75rem;
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--well);
 }
+/* Resolve progress: a thin trace under the drawing, green once resolved. */
+.sci-progress { height: 4px; margin-top: -0.375rem; border-radius: 2px; background: var(--line); overflow: hidden; }
+.sci-progress-bar { height: 100%; width: 0; background: var(--trace); }
+.sci-progress.done .sci-progress-bar { background: var(--ok); }
+/* Transport: reset, back, step, play joined into one strip. */
+.sci-transport { display: inline-flex; }
+.sci-transport .btn { min-width: 3.25rem; border-radius: 0; font-size: 1.125rem; }
+.sci-transport .btn + .btn { margin-left: -1.5px; }
+.sci-transport .btn:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.sci-transport .btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.sci-transport .btn:hover, .sci-transport .btn:focus-visible { position: relative; z-index: 1; }
+.sci-transport .btn.primary { min-width: 4rem; }
 
+/* How it's built */
 .sci-detail { display: grid; gap: 0.75rem; }
-.sci-dtitle { font-size: 1.0625rem; }
+.sci-dtitle { font-size: 1.125rem; }
 .sci-formula {
   padding: 0.5rem 0.75rem;
   font-size: 1.0625rem;
   font-weight: 600;
-  background: var(--surface-2);
+  background: var(--well);
   border-left: 4px solid var(--trace);
   border-radius: 0 var(--radius) var(--radius) 0;
   overflow-wrap: anywhere;
@@ -606,14 +808,31 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
   cursor: pointer;
   touch-action: manipulation;
 }
-.sci-link:hover { background: var(--surface-2); }
+.sci-link:hover { background: var(--trace-soft); }
 .sci-tryrow { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
 .sci-tryeg { overflow-wrap: anywhere; color: var(--amber); font-weight: 600; }
 
+/* ---------- wide screens ---------- */
+
 @media (min-width: 900px) {
-  .sci-col { gap: 1.25rem; }
+  .m2 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .m2-tree { height: 27rem; max-height: 70vh; }
+  .sci-pv { height: 18rem; }
+  .sci { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+  .sci-col { display: grid; gap: 1.25rem; min-width: 0; align-content: start; }
+  .card > .m2-h:first-child, .card > .sci-h:first-child { margin: 0 -1.25rem; padding: 0 1.25rem 0.875rem; }
+  .panel, .card { padding: 1rem 1.25rem 1.25rem; }
 }
+
 @media (max-width: 480px) {
-  .sci-pad .keycap { font-size: 1.125rem; }
+  .m2-keys { grid-template-columns: 1fr 1.6fr; }
+  .sci-pad .keycap { font-size: 1.25rem; }
   .sci-steps { margin-left: 0; flex-basis: 100%; }
+  .sci-stat { padding: 0.375rem 0.5rem; }
+  .sci-stat strong { font-size: 0.9375rem; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .keycap, .sci-piece { transition: background-color 0.12s, border-color 0.12s; }
+  .sci-progress-bar { transition: width 0.2s ease-out, background-color 0.2s; }
 }

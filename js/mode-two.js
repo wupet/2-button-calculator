@@ -66,6 +66,7 @@
       el('div', { class: 'm2-keys' }, key1, keyE),
       el('div', { class: 'm2-util' }, undoBtn, clearBtn),
       el('div', { class: 'm2-presets' },
+        el('h3', { class: 'm2-sub', text: 'Or let it press the keys for you' }),
         el('div', { class: 'm2-field' },
           el('label', { for: 'm2-preset', text: 'Build a constant' }), presetSel),
         el('div', { class: 'm2-field' },
@@ -74,10 +75,10 @@
       pinfoEl);
 
     const treeCard = el('div', { class: 'card m2-treecard' },
-      el('div', { class: 'm2-top' },
-        el('div', {}, el('div', { class: 'm2-label', text: 'Top of stack' }), valueEl),
-        badgeEl),
-      treeBox, treeMsg, fitBtn);
+      el('h2', { class: 'm2-h', text: 'Top of stack' }),
+      el('div', { class: 'm2-top' }, valueEl, badgeEl),
+      treeBox,
+      el('div', { class: 'm2-treefoot' }, treeMsg, fitBtn));
 
     section.textContent = '';
     section.append(el('div', { class: 'panels m2' }, calc, treeCard));
@@ -108,7 +109,7 @@
       stackEl.append(frag);
       stackEl.scrollTop = stackEl.scrollHeight;
       if (!machine.stack.length) {
-        stackEl.append(el('li', { class: 'm2-empty hint', text: '(empty)' }));
+        stackEl.append(el('li', { class: 'm2-empty hint', text: 'Nothing on the stack yet' }));
       }
 
       const top = machine.top;

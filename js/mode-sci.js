@@ -350,7 +350,7 @@
       b.dataset.example = ex;
       chips.append(b);
     }
-    const calcCard = el('div', { class: 'card sci-card' },
+    const calcCard = el('div', { class: 'card sci-card sci-calc' },
       el('h2', { class: 'sci-h', text: 'Type an expression' }),
       el('div', { class: 'sci-inputrow' }, input, evalBtn),
       chips, pad, funcs);
@@ -363,16 +363,16 @@
     const msgEl = el('p', { class: 'hint sci-msg', role: 'status', 'aria-live': 'polite' });
     const noteEl = el('p', { class: 'sci-note' });
     const refEl = el('p', { class: 'hint sci-ref mono' });
-    const statsEl = el('p', { class: 'sci-stats' });
+    const statsEl = el('div', { class: 'sci-stats' });
     const resultBody = el('div', { class: 'sci-result-body' },
       el('div', { class: 'sci-top' }, el('div', { class: 'sci-bigbox' }, bigLabelEl, valueEl), badgeEl),
       subEl, noteEl, refEl, statsEl);
-    const resultCard = el('div', { class: 'card sci-card' },
+    const resultCard = el('div', { class: 'card sci-card sci-result' },
       el('h2', { class: 'sci-h', text: 'Result' }), msgEl, resultBody);
 
     // ---- breakdown card ------------------------------------------------------------
     const piecesEl = el('div', { class: 'sci-pieces' });
-    const breakCard = el('div', { class: 'card sci-card', hidden: '' },
+    const breakCard = el('div', { class: 'card sci-card sci-break', hidden: '' },
       el('h2', { class: 'sci-h', text: 'How each piece is built' }),
       el('p', { class: 'hint', text: 'Tap a piece to ring where it sits in the tree.' }),
       piecesEl);
@@ -396,12 +396,16 @@
     for (const s of SPEEDS) speedSel.append(el('option', { value: s.id, text: s.label }));
     speedSel.value = 'medium';
     const stepsEl = el('span', { class: 'sci-steps mono', 'aria-live': 'polite' });
-    const expandCard = el('div', { class: 'card sci-card', hidden: '' },
-      el('h2', { class: 'sci-h', text: 'Expanded view' }),
+    const progressBar = el('div', { class: 'sci-progress-bar' });
+    const progressEl = el('div', { class: 'sci-progress', 'aria-hidden': 'true' }, progressBar);
+    const expandCard = el('div', { class: 'card sci-card sci-expand', hidden: '' },
+      el('h2', { class: 'sci-h', text: 'The pure-EML tree' }),
       el('p', { class: 'hint', text: 'Tap a dashed blob to unfold it one level. Press ▶ to resolve the tree from the leaves up. Pinch or Ctrl+scroll to zoom the tree; Fit tree resets the view.' }),
       el('div', { class: 'sci-bar' }, viewToggle, unfoldAllBtn, foldAllBtn, fitBtn),
-      limitEl, xmsgEl, treeBox, textBox,
-      el('div', { class: 'sci-ctl' }, backBtn, stepBtn, playBtn, speedSel, resetBtn, stepsEl));
+      limitEl, xmsgEl, treeBox, textBox, progressEl,
+      el('div', { class: 'sci-ctl' },
+        el('div', { class: 'sci-transport', role: 'group', 'aria-label': 'Resolve the tree' }, resetBtn, backBtn, stepBtn, playBtn),
+        speedSel, stepsEl));
 
     // ---- "how it's built" card -----------------------------------------------------
     const recipeSel = el('select', { id: 'sci-recipe', class: 'sci-select' });
@@ -416,7 +420,7 @@
     const pvMsg = el('p', { class: 'hint', role: 'status', 'aria-live': 'polite' });
     const tryBtn = btn('Try it', 'btn primary');
     const tryEg = el('span', { class: 'mono sci-tryeg' });
-    const howCard = el('div', { class: 'card sci-card' },
+    const howCard = el('div', { class: 'card sci-card sci-how' },
       el('h2', { class: 'sci-h', text: 'How it’s built' }),
       el('div', { class: 'sci-field' },
         el('label', { for: 'sci-recipe', class: 'sci-label', text: 'Pick a function or constant' }), recipeSel),
@@ -426,8 +430,10 @@
 
     section.textContent = '';
     section.append(el('div', { class: 'panels sci' },
-      el('div', { class: 'sci-col' }, calcCard, resultCard, breakCard),
-      el('div', { class: 'sci-col' }, expandCard, howCard)));
+      // Two columns on wide screens; on phones the columns dissolve and the
+      // cards follow the reading order calc, result, pieces, tree, recipes (CSS order).
+      el('div', { class: 'sci-col' }, calcCard, breakCard),
+      el('div', { class: 'sci-col' }, resultCard, expandCard, howCard)));
 
     // ---- state ---------------------------------------------------------------------
     let result = null;
@@ -549,6 +555,7 @@
       resultBody.hidden = false;
       const rv = resultView(result);
       valueEl.textContent = rv.big;
+      valueEl.classList.toggle('is-words', /[a-z]{3}/i.test(rv.big)); // e.g. 'too large for 64-bit floats'
       bigLabelEl.textContent = rv.bigLabel;
       bigLabelEl.hidden = !rv.bigLabel;
       subEl.textContent = rv.sub;
@@ -568,7 +575,7 @@
         ['height', count(result.height)],
         ['unique nodes', count(result.unique)],
       ]) {
-        statsEl.append(el('span', { class: 'sci-stat' }, `${label}: `, el('strong', { text: value })));
+        statsEl.append(el('span', { class: 'sci-stat' }, el('span', { class: 'sci-stat-k', text: label }), el('strong', { text: value })));
       }
     }
 
@@ -675,6 +682,8 @@
       const i = resolver.stepIndex;
       const n = resolver.totalSteps;
       stepsEl.textContent = `Step ${count(i)} / ${count(n)}` + (resolver.done ? ' — resolved' : '');
+      progressBar.style.width = (n ? (100 * i) / n : 0) + '%';
+      progressEl.classList.toggle('done', resolver.done);
       backBtn.disabled = i === 0;
       resetBtn.disabled = i === 0;
       stepBtn.disabled = resolver.done;
