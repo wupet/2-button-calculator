@@ -103,7 +103,7 @@ Built in this order (each uses only earlier entries):
 | 10 | `a × b` | `exp(ln a + ln b)` |
 | 11 | `a ÷ b` | `a × (1/b)` |
 | 12 | `aᵇ` | `exp(b × ln a)` |
-| 13 | integers n | `0`, `1` as above; `−1 = −(1)`; `2 = 1+1`; n>2 by binary method: `term=1`, `acc=none`; for each bit of n from low: if bit set `acc = acc ? acc+term : term`; then `term = 2 × term` (**multiply, not `term+term`** — addition computes exp(term) and overflows above ~709, which would cap integers at ~1419); negatives `−(n)` |
+| 13 | integers n | `0`, `1` as above; `−1 = −(1)`; `2 = 1+1`; n>2 by binary method in **Horner form (high bit to low; changed 2026-11-14 in Task 3)**: `acc = 1`; for each remaining bit of n from the top: `acc = 2 × acc` (**multiply, not `acc+acc`**), and if the bit is set `acc = acc + 1` (**small operand on the right**). Reason: `a + b = a − (−b)` computes `exp(b)`, so any large right-hand operand overflows past ~709; the earlier low-to-high form (`acc = acc + term`, `term = 2 × term`) overflows for e.g. 1e6 (needs `exp(2^14)`), and `add(term, term)` would cap integers near 1419. `add(large, 1)` and `mul(2, large)` only take logs of large values, so integers up to the 1e6 literal cap stay finite; negatives `−(n)` (still overflow for n > ~709, as the harness expects: `-1000` is flagged) |
 | 14 | rationals p/q | `p × (1/q)`, negated if p<0 (repo `eml_rational`) |
 | 15 | `i` | per branch policy: `exp(ln(−1) ÷ 2)` (−0 variant) or `−exp(ln(−1) ÷ 2)` (+0 variant, repo) |
 | 16 | `π` | per branch policy: `−i × ln(−1)` (−0 variant) or `i × ln(−1)` (+0 variant, repo) |
