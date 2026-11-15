@@ -108,3 +108,20 @@ test('load returns same EML once', () => {
   assert.equal(load(), EML);
   assert.ok(Object.is(EML.ZERO, -0));
 });
+
+test('ref.atan on the imaginary-axis cut (+0 real part)', () => {
+  const up = C.ref.atan(cx(0, 2));
+  assert.ok(C.approxEq(up, cx(Math.PI / 2, 0.5493061443340549)), C.format(up));
+  const down = C.ref.atan(cx(0, -2));
+  assert.ok(C.approxEq(down, cx(Math.PI / 2, -0.5493061443340549)), C.format(down));
+  assert.ok(C.approxEq(C.ref.atan(cx(-0, 2)), up));
+});
+
+test('approxEq treats non-finite values as equal only when identical', () => {
+  assert.equal(C.approxEq(cx(Infinity), cx(5)), false);
+  assert.equal(C.approxEq(cx(5), cx(Infinity)), false);
+  assert.equal(C.approxEq(cx(Infinity), cx(-Infinity)), false);
+  assert.equal(C.approxEq(cx(Infinity), cx(Infinity)), true);
+  assert.equal(C.approxEq(cx(NaN), cx(NaN)), false);
+  assert.equal(C.approxEq(cx(1, Infinity), cx(1, 5)), false);
+});

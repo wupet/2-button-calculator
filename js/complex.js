@@ -68,6 +68,7 @@
 
   C.approxEq = (a, b, rel = 1e-9, abs = 1e-12) => {
     if (a.re === b.re && a.im === b.im) return true;
+    if (!C.isFinite(a) || !C.isFinite(b)) return false; // non-finite: identical only
     return C.abs(C.sub(a, b)) <= abs + rel * Math.max(C.abs(a), C.abs(b));
   };
 
@@ -131,6 +132,9 @@
       : cx(Math.cosh(z.re) * Math.cos(z.im), Math.sinh(z.re) * Math.sin(z.im)),
     asin: (z) => (isReal(z) && Math.abs(z.re) <= 1 ? cx(Math.asin(z.re), 0) : asinC(z)),
     atan: (z) => isReal(z) ? cx(Math.atan(z.re), 0)
+      // imaginary-axis cut: with a +0 real part the principal Re is +pi/2
+      : z.re === 0 && Math.abs(z.im) > 1
+        ? cx(HALF_PI, Math.sign(z.im) * 0.5 * Math.log((Math.abs(z.im) + 1) / (Math.abs(z.im) - 1)))
       : C.mul(cx(0, 0.5), C.log(C.div(C.add(I, z), C.sub(I, z)))),
     asinh: (z) => isReal(z) ? cx(Math.asinh(z.re), 0)
       : C.log(C.add(z, C.sqrt(C.add(sqr(z), ONE)))),
