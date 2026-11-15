@@ -365,7 +365,8 @@
     const refEl = el('p', { class: 'hint sci-ref mono' });
     const statsEl = el('div', { class: 'sci-stats' });
     const resultBody = el('div', { class: 'sci-result-body' },
-      el('div', { class: 'sci-top' }, el('div', { class: 'sci-bigbox' }, bigLabelEl, valueEl), badgeEl),
+      el('div', { class: 'sci-top', 'aria-live': 'polite', 'aria-atomic': 'true' },
+        el('div', { class: 'sci-bigbox' }, bigLabelEl, valueEl), badgeEl),
       subEl, noteEl, refEl, statsEl);
     const resultCard = el('div', { class: 'card sci-card sci-result' },
       el('h2', { class: 'sci-h', text: 'Result' }), msgEl, resultBody);

@@ -656,6 +656,8 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
   border-bottom-color: color-mix(in srgb, var(--trace) 55%, #000);
   color: var(--on-trace);
 }
+.sci-pad .op:active { background: color-mix(in srgb, var(--trace) 22%, var(--surface)); }
+.sci-pad .eval:active { filter: brightness(0.92); }
 
 /* Functions: a recessed tray of smaller keys, one family per row when wide. */
 .sci-funcs {
