@@ -84,12 +84,12 @@ test('number cards describe how the literal is built', () => {
   assert.ok(modeSci.numberK('13') > modeSci.numberK('2'));
 });
 
-test('exampleFor: every recipe gets an example that evaluates without error', () => {
+test('exampleFor: every recipe gets an example that evaluates cleanly (status ok)', () => {
   for (const r of EML.recipes) {
     const ex = modeSci.exampleFor(r.id);
     assert.equal(typeof ex, 'string');
     const res = EML.run(ex);
-    assert.notEqual(res.status, 'error', `${r.id}: "${ex}" -> ${res.note}`);
+    assert.equal(res.status, 'ok', `${r.id}: "${ex}" -> ${res.status} ${res.note}`);
   }
   assert.equal(modeSci.exampleFor('sin'), 'sin(1)');
   assert.equal(modeSci.exampleFor('logb'), 'log(2, 8)');
@@ -125,12 +125,15 @@ test('positionsFor finds an element folded, unfolded and inside a body', () => {
   assert.deepEqual([...modeSci.positionsFor(unfolded, skel, 'r:add')], ['']);
 });
 
-test('R13: tan(2)+3 and sin(sin(2)) trip the node cap; sin(2) does not', () => {
+test('R13 caveat: only sin(sin(2)) trips the unfold-all cap; tan(2)+3, sin(2)+3 and sin(2) fit', () => {
   const tooBig = (src) => EML.viewModel.build(EML.run(src).call, { unfoldAll: true }, 1500);
   const a = tooBig('sin(sin(2))');
   assert.ok(a.tooBig);
   assert.equal(a.count, EML.run('sin(sin(2))').K);
   assert.ok(!tooBig('sin(2)').tooBig);
+  assert.ok(!tooBig('sin(2)+3').tooBig);
+  assert.ok(!tooBig('tan(2)+3').tooBig);
+  assert.equal(tooBig('tan(2)+3').count, 1273);
 });
 
 test('limit results resolve with the nudged literals and end at the tidy value', () => {
@@ -143,4 +146,7 @@ test('limit results resolve with the nudged literals and end at the tidy value',
   assert.ok(resolver.done);
   const top = resolver.values.get(vroot.path);
   assert.ok(Math.abs(top.re) < 1e-6 && Math.abs(top.im) < 1e-6);
+  // A literal 0 resolves to its nudged value (about 1e-12), not 0.
+  const zeroLeaf = [...resolver.values.entries()].find(([k]) => k === '/0');
+  assert.ok(zeroLeaf && zeroLeaf[1].re > 0 && zeroLeaf[1].re < 1e-9);
 });

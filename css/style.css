@@ -546,6 +546,7 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .sci-ctl .sci-select { width: auto; }
 .sci-steps { margin-left: auto; font-weight: 600; }
 .sci-xmsg:empty { display: none; }
+.sci-limit { font-size: 0.9375rem; color: var(--trace); border-left: 4px solid var(--trace); padding-left: 0.75rem; }
 .sci-tree, .sci-pv {
   height: 26rem;
   max-height: 65vh;

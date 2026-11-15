@@ -322,6 +322,7 @@
     const foldAllBtn = btn('Fold all', 'btn');
     const fitBtn = btn('Fit tree', 'btn');
     const xmsgEl = el('p', { class: 'hint sci-xmsg', role: 'status', 'aria-live': 'polite' });
+    const limitEl = el('p', { class: 'sci-limit', hidden: '', text: 'Limit mode: stepping uses literals nudged by a tiny amount (a 0 shows as about 1e-12), so the in-between values are approximate. The last step shows the limit.' });
     const treeBox = el('div', { class: 'sci-tree' });
     const textBox = el('div', { class: 'sci-text', hidden: '', tabindex: '0', 'aria-label': 'Step-by-step rewriting' });
     const backBtn = btn('◀', 'btn', { 'aria-label': 'Step back' });
@@ -336,7 +337,7 @@
       el('h2', { class: 'sci-h', text: 'Expanded view' }),
       el('p', { class: 'hint', text: 'Tap a dashed blob to unfold it one level. Press ▶ to resolve the tree from the leaves up.' }),
       el('div', { class: 'sci-bar' }, viewToggle, unfoldAllBtn, foldAllBtn, fitBtn),
-      xmsgEl, treeBox, textBox,
+      limitEl, xmsgEl, treeBox, textBox,
       el('div', { class: 'sci-ctl' }, backBtn, stepBtn, playBtn, speedSel, resetBtn, stepsEl));
 
     // ---- "how it's built" card -----------------------------------------------------
@@ -469,6 +470,7 @@
       fold = { unfolded: new Set(), all: false };
       selKey = null;
       xmsgEl.textContent = '';
+      limitEl.hidden = result.status !== 'limit';
       renderResult();
       renderBreakdown();
       breakCard.hidden = false;
