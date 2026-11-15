@@ -128,7 +128,8 @@
   // noise vanishes. When ref is exactly 0, or when not even the leading digit is
   // confirmed and |ref| is below the 'ok' check's absolute floor (1e-12, e.g.
   // sin(pi) = 1.2e-16 vs 6.1e-17), the value shows as 0. Otherwise at least one
-  // digit is kept. Returns null when either side is not finite (nothing verified).
+  // digit is kept and clamped is true. Returns null when either side is not finite
+  // (nothing verified).
   const NOISE = 1e-12;
   const MAX_SHOWN = 10;
   // x rounded to a multiple of 10^q, built from decimal text so it is exact.
@@ -147,13 +148,15 @@
     const mag = C.abs(ref);
     const err = C.abs(C.sub(raw, ref));
     let d = err === 0 ? 17 : Math.floor(-Math.log10(err / mag));
-    if (d < 1) {
+    // Not even the leading digit is confirmed: one digit is kept anyway (clamped).
+    const clamped = d < 1;
+    if (clamped) {
       if (mag < NOISE) return { value: cx(0, 0), digits: 0 };
       d = 1;
     }
     d = Math.min(d, 17);
     const q = Math.floor(Math.log10(mag)) - d + 1; // place of the last verified digit
-    return { value: cx(roundAt(ref.re, q), roundAt(ref.im, q)), digits: Math.min(d, MAX_SHOWN) };
+    return { value: cx(roundAt(ref.re, q), roundAt(ref.im, q)), digits: Math.min(d, MAX_SHOWN), clamped };
   };
   // The one formatter for every value the page presents as checked.
   C.formatVerified = (raw, ref) => {

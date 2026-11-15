@@ -3,37 +3,46 @@
   const { C } = EML;
 
   // ---- Layout constants (SVG user units ~ CSS px at zoom 1) -----------------
+  // All sizes are for the default 16px root; layout(vroot, scale) multiplies them
+  // so the labels (0.8125rem in CSS) and their boxes grow together in large type.
   const ROW = 64;       // vertical distance between depths
   const GAP = 14;       // minimum horizontal gap between sibling subtrees
   const PAD = 24;       // margin around the whole drawing
   const NODE_H = 28;    // height of blob / chip / leaf boxes
   const CHAR_W = 7.8;   // approx. width of one mono glyph at 13px
+  const HIT_H = 44;     // touch target height of an unfoldable blob
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const MAX_SCALE = 4;  // max zoom-in, px per user unit
 
   const displayLabel = (kind, label, hasChildren) =>
     (kind === 'blob' && hasChildren ? label + '(…)' : label);
 
-  // Box size of a drawn position.
-  function nodeSize(kind, label, hasChildren) {
-    if (kind === 'eml') return { w: 26, h: 26 };
-    if (kind === 'one') return { w: 28, h: NODE_H };
+  // Box size of a drawn position at the given scale.
+  function nodeSize(kind, label, hasChildren, k = 1) {
+    if (kind === 'eml') return { w: 26 * k, h: 26 * k };
+    if (kind === 'one') return { w: 28 * k, h: NODE_H * k };
     const text = displayLabel(kind, label, hasChildren);
     const pad = kind === 'blob' ? 22 : 16;
-    return { w: Math.max(28, Math.ceil(text.length * CHAR_W + pad)), h: NODE_H };
+    return { w: Math.max(28, Math.ceil(text.length * CHAR_W + pad)) * k, h: NODE_H * k };
   }
 
   // Pure layout: leaves are laid left to right, a parent sits at the mean x of
   // its children, y = depth * row height. Each subtree reserves its bounding
   // extent, so nodes never overlap. Iterative (trees can be deep).
-  //   -> { nodes: [{path, x, y, kind, label, w, h}], edges: [[from, to]], width, height }
-  function layout(vroot) {
+  // scale: the root font size / 16 (1.25 in large type).
+  //   -> { nodes: [{path, x, y, kind, label, w, h}], edges: [[from, to]], width, height, scale }
+  function layout(vroot, scale = 1) {
+    const k = scale > 0 ? scale : 1;
+    const row = ROW * k;
+    const gap = GAP * k;
+    const pad = PAD * k;
+    const nodeH = NODE_H * k;
     const list = []; // pre-order
     const stack = [{ v: vroot, depth: 0, parent: -1 }];
     while (stack.length) {
       const { v, depth, parent } = stack.pop();
       const idx = list.length;
-      const size = nodeSize(v.kind, v.label, v.children.length > 0);
+      const size = nodeSize(v.kind, v.label, v.children.length > 0, k);
       list.push({ v, depth, parent, kids: [], w: size.w, h: size.h, left: 0, right: 0, offs: [], x: 0 });
       if (parent >= 0) list[parent].kids.push(idx);
       for (let i = v.children.length - 1; i >= 0; i--) {
@@ -53,7 +62,7 @@
       let prevX = 0;
       for (const k of n.kids) {
         const c = list[k];
-        const x = prev ? prevX + prev.right + GAP - c.left : 0;
+        const x = prev ? prevX + prev.right + gap - c.left : 0;
         rel.push(x);
         prev = c;
         prevX = x;
@@ -72,7 +81,7 @@
 
     // Top-down: absolute x.
     const rootN = list[0];
-    rootN.x = PAD - rootN.left;
+    rootN.x = pad - rootN.left;
     let maxDepth = 0;
     for (const n of list) {
       n.kids.forEach((k, j) => { list[k].x = n.x + n.offs[j]; });
@@ -83,7 +92,7 @@
     const edges = [];
     for (const n of list) {
       nodes.push({
-        path: n.v.path, x: n.x, y: PAD + NODE_H / 2 + n.depth * ROW,
+        path: n.v.path, x: n.x, y: pad + nodeH / 2 + n.depth * row,
         kind: n.v.kind, label: n.v.label, w: n.w, h: n.h,
         hasChildren: n.kids.length > 0,
       });
@@ -92,8 +101,9 @@
     return {
       nodes,
       edges,
-      width: rootN.right - rootN.left + 2 * PAD,
-      height: maxDepth * ROW + NODE_H + 2 * PAD,
+      width: rootN.right - rootN.left + 2 * pad,
+      height: maxDepth * row + nodeH + 2 * pad,
+      scale: k,
     };
   }
 
@@ -168,6 +178,18 @@
         root.addEventListener('blur', this._onBlur);
       }
 
+      // Large type changes the root font size: lay the tree out again so the
+      // boxes keep fitting their (rem-sized) labels.
+      if (typeof root.MutationObserver === 'function' && doc.documentElement) {
+        this._mo = new root.MutationObserver(() => {
+          if (this._lastArgs && this._scale() !== this.layout.scale) {
+            const [v, r, o] = this._lastArgs;
+            this.render(v, r, Object.assign({}, o, { fit: true }));
+          }
+        });
+        this._mo.observe(doc.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+      }
+
       if (typeof root.ResizeObserver === 'function') {
         this._ro = new root.ResizeObserver(() => this._onResize());
         this._ro.observe(container);
@@ -181,8 +203,9 @@
     render(vroot, resolver, opts = {}) {
       const doc = root.document;
       const highlight = opts.highlight || new Set();
+      this._lastArgs = [vroot, resolver, opts];
       const shown = prune(vroot, resolver || null);
-      const lay = layout(shown);
+      const lay = layout(shown, this._scale());
       this.layout = lay;
       this.edgeLayer.textContent = '';
       this.nodeLayer.textContent = '';
@@ -212,7 +235,15 @@
       }
     }
 
+    // Root font size / 16: 1 normally, 1.25 in large type.
+    _scale() {
+      const doc = root.document;
+      const px = doc && root.getComputedStyle ? parseFloat(root.getComputedStyle(doc.documentElement).fontSize) : 16;
+      return px > 0 ? px / 16 : 1;
+    }
+
     _nodeEl(n, hl) {
+      const k = this.layout.scale;
       const doc = root.document;
       const g = doc.createElementNS(SVG_NS, 'g');
       g.setAttribute('class', `tv-node tv-${n.kind}${hl ? ' hl' : ''}`);
@@ -241,21 +272,22 @@
       };
       if (clickable) {
         // Invisible 44-unit-tall hit area so a fingertip can hit the 28-unit blob.
-        g.append(shape('rect', { x: -n.w / 2, y: -22, width: n.w, height: 44 }, 'tv-hit'));
+        g.append(shape('rect', { x: -n.w / 2, y: -HIT_H * k / 2, width: n.w, height: HIT_H * k }, 'tv-hit'));
       }
       if (hl) {
         // Dashed ring: marks the frontier by shape, not by colour alone.
-        if (n.kind === 'eml') g.append(shape('circle', { r: n.w / 2 + 5 }, 'tv-ring'));
+        const o = 5 * k;
+        if (n.kind === 'eml') g.append(shape('circle', { r: n.w / 2 + o }, 'tv-ring'));
         else {
           g.append(shape('rect', {
-            x: -n.w / 2 - 5, y: -n.h / 2 - 5, width: n.w + 10, height: n.h + 10, rx: n.h / 2 + 5,
+            x: -n.w / 2 - o, y: -n.h / 2 - o, width: n.w + 2 * o, height: n.h + 2 * o, rx: n.h / 2 + o,
           }, 'tv-ring'));
         }
       }
       if (n.kind === 'eml') {
         g.append(shape('circle', { r: n.w / 2 }, 'tv-shape'));
       } else {
-        const rx = n.kind === 'blob' ? n.h / 2 : n.kind === 'chip' ? 6 : 4;
+        const rx = n.kind === 'blob' ? n.h / 2 : (n.kind === 'chip' ? 6 : 4) * k;
         g.append(shape('rect', { x: -n.w / 2, y: -n.h / 2, width: n.w, height: n.h, rx }, 'tv-shape'));
       }
       const text = shape('text', { 'text-anchor': 'middle', dy: '0.35em' }, 'tv-label');
@@ -418,6 +450,7 @@
 
     destroy() {
       if (this._ro) this._ro.disconnect();
+      if (this._mo) this._mo.disconnect();
       if (this._onBlur && typeof root.removeEventListener === 'function') root.removeEventListener('blur', this._onBlur);
     }
   }

@@ -61,15 +61,21 @@
         }
         // R24: two number tokens in a row can only come from a space between
         // them ("1 000"), which is a typo far more often than a product.
+        // Only a run of whole numbers ("1 000 000") reads as one number split by
+        // spaces; anything with a decimal point gets an operator hint instead.
         const prev = toks[toks.length - 1];
         if (prev && prev.t === 'num') {
-          let joined = prev.text + text;
+          const run = [prev.text, text];
           let j = i + text.length;
           for (let m; (m = /^\s+([0-9]+(?:\.[0-9]*)?)/.exec(src.slice(j)));) {
-            joined += m[1];
+            run.push(m[1]);
             j += m[0].length;
           }
-          throw new ParseError('Two numbers in a row — did you mean ' + joined + '?', i);
+          const d = run.findIndex((t) => !/^[0-9]+$/.test(t));
+          if (d < 0) throw new ParseError('Two numbers in a row — did you mean ' + run.join('') + '?', i);
+          // Whole numbers before the first decimal still join ("1 000 2.5" -> 1000*2.5).
+          const [a, b] = d === 0 ? [run[0], run[1]] : [run.slice(0, d).join(''), run[d]];
+          throw new ParseError('Two numbers in a row — add an operator, e.g. ' + a + '*' + b, i);
         }
         toks.push({ t: 'num', text, value: parseFloat(text), pos: i });
         i += text.length;
@@ -110,7 +116,24 @@
       const at = toks.indexOf(tok);
       const before = toks[at - 1];
       const after = toks[at + 1];
-      if (isOp(tok, ',') && before && before.t === 'num' && after && after.t === 'num' && !after.text.includes('.')) {
+      // "1,000" / "12,345,678.5": commas between groups of exactly three digits
+      // are thousands separators (a group after the first may not start a number
+      // with 0, and only the last group may carry decimals).
+      if (isOp(tok, ',') && before && before.t === 'num' && /^[1-9][0-9]{0,2}$/.test(before.text)) {
+        let joined = before.text;
+        let j = at;
+        while (isOp(toks[j], ',') && toks[j + 1] && toks[j + 1].t === 'num' && /^[0-9]{3}(?:\.[0-9]*)?$/.test(toks[j + 1].text)) {
+          joined += toks[j + 1].text;
+          j += 2;
+          if (joined.includes('.')) break;
+        }
+        // The whole run must be grouped: nothing number-like may follow it.
+        const next = toks[j];
+        const grouped = j > at && !(isOp(next, ',') && toks[j + 1] && toks[j + 1].t === 'num');
+        if (grouped) return new ParseError("Don't use commas in numbers — write " + joined, tok.pos);
+      }
+      if (isOp(tok, ',') && before && before.t === 'num' && /^[0-9]+$/.test(before.text) &&
+        after && after.t === 'num' && !after.text.includes('.')) {
         return new ParseError('Use a dot for decimals (' + before.text + '.' + after.text + ')', tok.pos);
       }
       return new ParseError(

@@ -208,3 +208,33 @@ test('other implicit multiplication is unchanged by R24', () => {
   assert.equal(p('(2)(3)'), '(* 2 3)');
   assert.equal(p('(2) 3'), '(* 2 3)');
 });
+
+// Hints for numbers typed with spaces or thousands commas.
+test('two numbers in a row: join only whole numbers, otherwise suggest an operator', () => {
+  const cases = [['1.5 2', 'Two numbers in a row — add an operator, e.g. 1.5*2'],
+    ['1 2.5', 'Two numbers in a row — add an operator, e.g. 1*2.5'],
+    ['1 000 2.5', 'Two numbers in a row — add an operator, e.g. 1000*2.5'],
+    ['2. 3', 'Two numbers in a row — add an operator, e.g. 2.*3'],
+    ['1 000', 'Two numbers in a row — did you mean 1000?']];
+  for (const [src, msg] of cases) {
+    assert.throws(() => parse(src), (e) => e instanceof ParseError && e.message === msg, src);
+  }
+});
+
+test('thousands commas get their own hint; other top-level commas stay decimal hints', () => {
+  const cases = [['1,000', "Don't use commas in numbers — write 1000"],
+    ['1,000,000', "Don't use commas in numbers — write 1000000"],
+    ['12,345,678.5', "Don't use commas in numbers — write 12345678.5"],
+    ['1,000 + 1', "Don't use commas in numbers — write 1000"],
+    ['2,500', "Don't use commas in numbers — write 2500"],
+    ['2,5', 'Use a dot for decimals (2.5)'],
+    ['0,125', 'Use a dot for decimals (0.125)'],
+    ['1,0000', 'Use a dot for decimals (1.0000)'],
+    ['1000,000', 'Use a dot for decimals (1000.000)'],
+    ['1.5,000', "Unexpected ','"]];
+  for (const [src, msg] of cases) {
+    assert.throws(() => parse(src), (e) => e instanceof ParseError && e.message === msg, src);
+  }
+  // Inside a function call the comma still separates arguments.
+  assert.equal(p('log(1,000)'), '(logb 1 000)');
+});

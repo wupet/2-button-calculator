@@ -22,8 +22,18 @@
     undefined: { text: 'undefined', tone: 'muted' },
     error: { text: '', tone: 'error' }, // an error shows only its message
   };
-  function badgeFor(status) {
-    return Object.assign({}, has(BADGES, status) ? BADGES[status] : BADGES.error);
+  // An overflow result whose failure is really an underflow (a value below
+  // ~1e-308): the reference's range failure, or a route that only underflowed.
+  function isUnderflow(result) {
+    if (!result || result.status !== 'overflow') return false;
+    if (result.range) return result.range.cause === 'underflow';
+    return !!(result.flags && result.flags.underflow && !result.flags.overflow);
+  }
+  // result (optional) refines the overflow badge's wording; the status stays 'overflow'.
+  function badgeFor(status, result) {
+    const badge = Object.assign({}, has(BADGES, status) ? BADGES[status] : BADGES.error);
+    if (status === 'overflow' && isUnderflow(result)) badge.text = '⚠ out of range';
+    return badge;
   }
 
   // ---- "Try it" examples --------------------------------------------------------
@@ -252,6 +262,8 @@
     if (!v) return '';
     if (result.ref.re === 0 && result.ref.im === 0) return 'Standard math: 0';
     if (v.digits === 0) return 'Standard math: 0 (to within 1e-12)';
+    // Not even the first digit was confirmed: say so instead of claiming agreement.
+    if (v.clamped) return `Standard math: ${C.format(result.ref, 10)} (the EML tree doesn’t confirm even its first digit here)`;
     if (v.digits >= 10) return 'Standard math agrees to all 10 digits shown';
     return `Standard math agrees to ${v.digits} significant digit${v.digits === 1 ? '' : 's'}`;
   }
@@ -541,7 +553,7 @@
       bigLabelEl.hidden = !rv.bigLabel;
       subEl.textContent = rv.sub;
       subEl.hidden = !rv.sub;
-      const badge = badgeFor(result.status);
+      const badge = badgeFor(result.status, result);
       badgeEl.hidden = !badge.text;
       badgeEl.textContent = badge.text;
       badgeEl.className = 'sci-badge tone-' + badge.tone;
@@ -789,6 +801,6 @@
   }
 
   EML.modeSci = {
-    init, resultView, refLine, pieceValue, count, breakdown, skeleton, positionsFor, badgeFor, exampleFor, sampleK, numberK, SPEEDS, FUNC_KEYS,
+    init, resultView, refLine, pieceValue, count, breakdown, skeleton, positionsFor, badgeFor, isUnderflow, exampleFor, sampleK, numberK, SPEEDS, FUNC_KEYS,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

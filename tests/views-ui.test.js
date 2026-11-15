@@ -68,6 +68,21 @@ test('layout: wide folded blobs on one row do not overlap', () => {
   noOverlap(EML.TreeView.layout(build('sin(2)+cos(3)*ln(5)')));
 });
 
+test('layout scales with large type: same shape, every size times the scale, no overlap', () => {
+  const v = build('sin(2)+cos(3)*ln(5)');
+  const a = EML.TreeView.layout(v);
+  const b = EML.TreeView.layout(v, 1.25);
+  assert.equal(a.scale, 1);
+  assert.equal(b.scale, 1.25);
+  assert.equal(b.nodes.length, a.nodes.length);
+  assert.ok(Math.abs(b.width - a.width * 1.25) < 1e-6 && Math.abs(b.height - a.height * 1.25) < 1e-6);
+  a.nodes.forEach((n, i) => {
+    assert.ok(Math.abs(b.nodes[i].w - n.w * 1.25) < 1e-9 && Math.abs(b.nodes[i].h - n.h * 1.25) < 1e-9, n.path);
+  });
+  noOverlap(b);
+  noOverlap(EML.TreeView.layout(build('sin(2)', { unfoldAll: true }), 1.25));
+});
+
 test('prune: resolved positions become chips, their subtrees vanish', () => {
   const root = build('sin(2)+3');
   const res = resolverFor(root);

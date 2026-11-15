@@ -268,7 +268,9 @@
     if (flags.overflow || flags.underflow) {
       return Object.assign(base, {
         status: 'overflow', value: raw,
-        note: 'This EML route computes an e^(\u2026) too big for a 64-bit float, so the tree can\u2019t finish. ' +
+        note: 'This EML route computes an e^(\u2026) ' +
+          (flags.overflow ? 'too big' : 'too small (below ~1e-308)') +
+          ' for a 64-bit float, so the tree can\u2019t finish. ' +
           'Standard math says ' + C.format(ref) + '.',
       });
     }

@@ -432,7 +432,7 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 .tv-svg.panning { cursor: grabbing; }
 .tv-edges path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
 .tv-hit { fill: transparent; stroke: none; }
-.tv-label { font-family: var(--font-mono); font-size: 13px; font-weight: 600; fill: var(--ink); pointer-events: none; }
+.tv-label { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 600; fill: var(--ink); pointer-events: none; }
 .tv-shape { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
 .tv-eml .tv-shape { stroke: var(--trace); stroke-width: 2.25; }
 .tv-eml .tv-label { fill: var(--trace); font-weight: 700; }

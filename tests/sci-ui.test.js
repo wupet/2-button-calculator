@@ -27,6 +27,38 @@ test('badgeFor covers all six statuses with the spec wording', () => {
   assert.equal(modeSci.badgeFor('ok').text, '✓ matches standard math');
 });
 
+test('badgeFor: an underflow reads "out of range"; the status stays overflow', () => {
+  const r = EML.run('exp(-800)');
+  assert.equal(r.status, 'overflow');
+  assert.equal(r.range.cause, 'underflow');
+  assert.deepEqual(modeSci.badgeFor(r.status, r), { text: '⚠ out of range', tone: 'warn' });
+  const along = EML.run('ln(exp(-800))');
+  assert.equal(modeSci.badgeFor(along.status, along).text, '⚠ out of range');
+  // A route that only underflowed (no reference range failure) reads the same.
+  const route = { status: 'overflow', range: null, flags: { underflow: true } };
+  assert.equal(modeSci.badgeFor('overflow', route).text, '⚠ out of range');
+  assert.equal(modeSci.badgeFor('overflow', { status: 'overflow', range: null, flags: { overflow: true, underflow: true } }).text, '⚠ overflow');
+  // Real overflows keep the overflow badge.
+  const big = EML.run('e^1000');
+  assert.deepEqual(modeSci.badgeFor(big.status, big), { text: '⚠ overflow', tone: 'warn' });
+  const neg = EML.run('-1000');
+  assert.equal(modeSci.badgeFor(neg.status, neg).text, '⚠ overflow');
+});
+
+test('refLine: no agreement claim when not even the first digit is confirmed', () => {
+  const C = EML.C;
+  // Within the ok check's absolute tolerance, but off by more than 10%.
+  const r = { status: 'ok', value: C.cx(1.5e-12, 0), ref: C.cx(2.4e-12, 0) };
+  assert.equal(C.verify(r.value, r.ref).clamped, true);
+  const line = modeSci.refLine(r);
+  assert.doesNotMatch(line, /agrees/);
+  assert.equal(line, 'Standard math: 2.4e-12 (the EML tree doesn’t confirm even its first digit here)');
+  // One genuinely confirmed digit still says so.
+  const one = { status: 'ok', value: C.cx(2.45, 0), ref: C.cx(2.4, 0) };
+  assert.equal(C.verify(one.value, one.ref).clamped, false);
+  assert.equal(modeSci.refLine(one), 'Standard math agrees to 1 significant digit');
+});
+
 test('breakdown lists distinct elements in reading order', () => {
   assert.deepEqual(keys('sin(2) + 3'), ['r:sin', 'num:2', 'r:add', 'num:3']);
   assert.deepEqual(keys('2 + 2 + 2'), ['num:2', 'r:add']);
