@@ -314,3 +314,145 @@ dialog#explainer::backdrop { background: rgba(5, 12, 19, 0.6); }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .segmented button { transition: background-color 0.12s, border-color 0.12s; }
 }
+
+/* ---------- two-button mode ---------- */
+
+.m2 { align-items: start; }
+.m2-h { font-size: 1.125rem; margin-bottom: 0.75rem; }
+.m2-calc, .m2-treecard { display: grid; gap: 0.75rem; align-content: start; }
+.m2-label {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.m2-readout { display: grid; gap: 0.25rem; }
+.m2-tape {
+  min-height: 2.5rem;
+  max-height: 6rem;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border-left: 4px solid var(--trace);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 1.125rem;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+.m2-tape:empty::before { content: "nothing pressed yet"; color: var(--muted); letter-spacing: 0; font-size: 0.9375rem; }
+.m2-stack {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  max-height: 11rem;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.125rem;
+}
+.m2-stack li { display: flex; gap: 0.75rem; align-items: baseline; min-width: 0; }
+.m2-stack .value { overflow-wrap: anywhere; font-weight: 600; }
+.m2-idx { color: var(--muted); font-family: var(--font-mono); font-size: 0.8125rem; min-width: 1.5rem; }
+.m2-msg { min-height: 2.9em; }
+
+.m2-keys { display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem; }
+.m2-key {
+  min-height: 4.5rem;
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  border-width: 2px;
+}
+.m2-eml { background: var(--trace); border-color: var(--trace); color: var(--on-trace); letter-spacing: 0.08em; }
+.m2-eml:hover { border-color: var(--trace); filter: brightness(1.08); }
+.m2-eml:active { background: var(--trace); filter: brightness(0.92); }
+.m2-util { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.m2-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1.5px solid var(--line);
+}
+.m2-field { display: grid; gap: 0.125rem; min-width: 0; }
+.m2-field label { font-size: 0.875rem; font-weight: 600; color: var(--muted); }
+.m2-select {
+  font: inherit;
+  min-height: var(--touch);
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+}
+.m2-playrow { grid-column: 1 / -1; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.m2-playrow .btn { flex: 1 1 8rem; }
+
+.m2-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.m2-value { font-size: clamp(1.25rem, 6vw, 2rem); font-weight: 650; overflow-wrap: anywhere; }
+.m2-badge {
+  padding: 0.25rem 0.75rem;
+  border: 1.5px solid var(--ok);
+  border-radius: 999px;
+  color: var(--ok);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+.m2-badge[hidden], .m2-tree[hidden], .m2-fit[hidden] { display: none; }
+.m2-fit { justify-self: start; }
+.m2-treemsg:empty { display: none; }
+
+/* ---------- tree view (SVG) ---------- */
+
+.m2-tree {
+  height: 20rem;
+  max-height: 60vh;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: hidden;
+}
+.tv-svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.tv-svg.panning { cursor: grabbing; }
+.tv-edges path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.tv-label { font-family: var(--font-mono); font-size: 13px; font-weight: 600; fill: var(--ink); pointer-events: none; }
+.tv-shape { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.tv-eml .tv-shape { stroke: var(--trace); stroke-width: 2.25; }
+.tv-eml .tv-label { fill: var(--trace); font-weight: 700; }
+.tv-one .tv-shape, .tv-var .tv-shape { fill: var(--surface-2); }
+.tv-blob .tv-shape { fill: var(--surface-2); stroke: var(--trace); stroke-dasharray: 5 3; }
+.tv-blob[role="button"] { cursor: pointer; }
+.tv-blob[role="button"]:hover .tv-shape { stroke: var(--amber); }
+.tv-chip .tv-shape { stroke: var(--amber); stroke-width: 2; }
+.tv-chip .tv-label { fill: var(--amber); }
+.tv-ring { fill: none; stroke: var(--amber); stroke-width: 2; stroke-dasharray: 4 3; }
+.tv-node:focus-visible { outline: none; }
+.tv-node:focus-visible .tv-shape { stroke: var(--focus); stroke-width: 3; }
+
+/* ---------- text view ---------- */
+
+.txt-line {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed var(--line);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.txt-line:last-child { border-bottom: 0; }
+.txt-eq { color: var(--muted); }
+.txt-line mark {
+  background: color-mix(in srgb, var(--amber) 22%, transparent);
+  color: var(--amber);
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 0 0.15em;
+}
+
+@media (max-width: 480px) {
+  .m2-keys { grid-template-columns: 1fr 1.6fr; }
+}
